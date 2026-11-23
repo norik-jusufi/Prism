@@ -1,0 +1,45 @@
+/* PRISM cosmetic filter: hides empty ad slots left behind after network blocking.
+   Kept deliberately conservative so normal page layouts are not broken. */
+ins.adsbygoogle,
+.adsbygoogle,
+[id^="google_ads_"],
+[id^="div-gpt-ad"],
+[data-google-query-id],
+[data-ad-slot],
+[data-ad-client],
+[data-ad-unit],
+iframe[id^="google_ads_iframe"],
+iframe[src*="doubleclick.net"],
+iframe[src*="googlesyndication.com"],
+iframe[src*="amazon-adsystem.com"],
+#carbonads,
+.carbon-ads,
+#amzn-assoc-ad,
+[id^="amzn-assoc-ad"],
+[id^="taboola-"],
+.trc_rbox_container,
+.OUTBRAIN,
+.ob-widget,
+[id^="ezoic-pub-ad"],
+.ezoic-ad,
+.adthrive-ad,
+[id^="AdThrive_"],
+.mv-ad-box,
+[id^="adngin-"],
+[aria-label="Advertisement"],
+[aria-label="advertisement"],
+#zdcFloatingBtn,
+[class$="-ad"],
+[class*="-ad "],
+[id$="-ad"],
+[id^="ad-slot"],
+[id^="ad_slot"],
+.ad-slot,
+.ad-banner,
+.ad-leaderboard,
+.ad-sidebar {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  min-height: 0 !important;
+}

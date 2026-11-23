@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect x="8" y="8" width="496" height="496" rx="110" fill="#040a07" stroke="#1f5537" stroke-width="6"/>
+  <g stroke="#36f59b" stroke-width="2" opacity=".12">
+    <path d="M8 72H504M8 136H504M8 200H504M8 264H504M8 328H504M8 392H504M8 456H504M72 8V504M136 8V504M200 8V504M264 8V504M328 8V504M392 8V504M456 8V504"/>
+  </g>
+  <line x1="40" y1="306" x2="178" y2="262" stroke="#ffffff" stroke-width="14" stroke-linecap="round"/>
+  <polygon points="256,110 408,374 104,374" fill="#36f59b" fill-opacity=".14" stroke="#36f59b" stroke-width="14" stroke-linejoin="round"/>
+  <polygon points="178,262 330,222 338,270" fill="#ffffff" fill-opacity=".55"/>
+  <g stroke-width="13" stroke-linecap="round">
+    <line x1="330" y1="222" x2="472" y2="176" stroke="#eafff3"/>
+    <line x1="334" y1="246" x2="472" y2="246" stroke="#36f59b"/>
+    <line x1="338" y1="270" x2="472" y2="316" stroke="#138a52"/>
+  </g>
+</svg>

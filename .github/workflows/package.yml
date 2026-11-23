@@ -1,0 +1,75 @@
+# Publishes PRISM's container image to GitHub Packages (ghcr.io/norik-jusufi/prism).
+#
+# Runs when a version tag (v1.2.0, v1.2.0-beta, ...) is pushed, and by hand
+# from the Actions tab. Before publishing it launches PRISM in the image
+# (offscreen) and fails if PRISM doesn't start.
+#
+# Tags: the version (1.1.0-beta), plus "latest" for full releases or "beta"
+# for -beta versions.
+
+name: Package
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/norik-jusufi/prism
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version
+        id: v
+        run: |
+          VERSION=$(python3 -c "import re; print(re.search(r'VERSION\s*=\s*\"([^\"]+)\"', open('version.py').read()).group(1))")
+          CHANNEL=$([[ "$VERSION" == *-* ]] && echo beta || echo latest)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "PRISM $VERSION -> $IMAGE:$VERSION, $IMAGE:$CHANNEL"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: prism:test
+          labels: org.opencontainers.image.version=${{ steps.v.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test (PRISM must start)
+        run: |
+          set +e
+          docker run --rm -e QT_QPA_PLATFORM=offscreen --user 1000:1000 \
+            --entrypoint timeout prism:test 40 python -u /opt/prism/prism.py > run.log 2>&1
+          grep -vE "^\[[0-9:/.]+(ERROR|WARNING)" run.log | tail -40
+          grep -q "blocked domains" run.log || { echo "::error::PRISM did not start"; exit 1; }
+          if grep -q "Traceback" run.log; then echo "::error::Python error at startup"; exit 1; fi
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.v.outputs.version }}
+            ${{ env.IMAGE }}:${{ steps.v.outputs.channel }}
+          labels: org.opencontainers.image.version=${{ steps.v.outputs.version }}
+          cache-from: type=gha

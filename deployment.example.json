@@ -1,0 +1,6 @@
+{
+  "edition": "partner",
+  "updateCheck": true,
+  "updateRepo": "norik-jusufi/Prism",
+  "updateBranch": "main"
+}

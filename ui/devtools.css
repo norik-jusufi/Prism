@@ -1,0 +1,133 @@
+/* PRISM theme for the docked Chromium DevTools. Injected into the DevTools
+   frontend by DevDock (prism.py). DevTools draws every panel from the
+   --sys-color-* design tokens on :root (shadow roots inherit them), so
+   overriding the tokens re-skins it to match theme.css. Colours mirror the
+   tokens in theme.css; keep the two in sync. */
+
+:root:root, :root.theme-with-dark-background {
+  color-scheme: dark !important;
+
+  /* fonts: the whole PRISM UI is monospace */
+  --default-font-family: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", "Fira Code", Consolas, monospace !important;
+  --monospace-font-family: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", "Fira Code", Consolas, monospace !important;
+  --source-code-font-family: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", "Fira Code", Consolas, monospace !important;
+
+  /* surfaces */
+  --sys-color-cdt-base: #040a07 !important;
+  --sys-color-cdt-base-container: #040a07 !important;
+  --sys-color-base: #040a07 !important;
+  --sys-color-base-container: #07110c !important;
+  --sys-color-base-container-elevated: #0b1a12 !important;
+  --sys-color-header-container: #07110c !important;
+  --sys-color-omnibox-container: #020604 !important;
+  --sys-color-surface: #07110c !important;
+  --sys-color-surface1: #07110c !important;
+  --sys-color-surface2: #0b1a12 !important;
+  --sys-color-surface3: #0b1a12 !important;
+  --sys-color-surface4: #10261a !important;
+  --sys-color-surface5: #10261a !important;
+  --sys-color-surface-variant: #10261a !important;
+  --sys-color-neutral-container: #0b1a12 !important;
+  --sys-color-neutral-bright: #5f8270 !important;
+  --sys-color-inverse-surface: #d6f5e2 !important;
+  --sys-color-inverse-on-surface: #040a07 !important;
+
+  /* text */
+  --sys-color-on-base: #e8f5ec !important;
+  --sys-color-on-surface: #e8f5ec !important;
+  --sys-color-on-surface-subtle: #a9c9b5 !important;
+  --sys-color-on-surface-secondary: #a9c9b5 !important;
+  --sys-color-on-surface-primary: #36f59b !important;
+  --sys-color-on-subtle: #a9c9b5 !important;
+  --sys-color-token-subtle: #5f8270 !important;
+
+  /* lines */
+  --sys-color-divider: #163826 !important;
+  --sys-color-divider-prominent: #1f5537 !important;
+  --sys-color-divider-on-tonal-container: #1f5537 !important;
+  --sys-color-on-base-divider: #163826 !important;
+  --sys-color-neutral-outline: #1f5537 !important;
+  --sys-color-outline: #1f5537 !important;
+  --sys-color-tonal-outline: #1fa866 !important;
+
+  /* accent */
+  --sys-color-primary: #36f59b !important;
+  --sys-color-primary-bright: #74ff7a !important;
+  --sys-color-on-primary: #040a07 !important;
+  --sys-color-inverse-primary: #1fa866 !important;
+  --sys-color-secondary: #1fa866 !important;
+  --sys-color-on-secondary: #040a07 !important;
+  --sys-color-tertiary: #4fd8e8 !important;
+  --sys-color-on-tertiary: #040a07 !important;
+  --sys-color-tertiary-container: #0c2a2c !important;
+  --sys-color-on-tertiary-container: #4fd8e8 !important;
+  --sys-color-tonal-container: #0f2a1c !important;
+  --sys-color-on-tonal-container: #36f59b !important;
+  --sys-color-green: #36f59b !important;
+  --sys-color-green-bright: #74ff7a !important;
+  --sys-color-on-green: #040a07 !important;
+  --sys-color-surface-green: #0b1a12 !important;
+  --sys-color-on-surface-green: #36f59b !important;
+
+  /* interaction states */
+  --sys-color-state-hover-on-subtle: rgba(54, 245, 155, .07) !important;
+  --sys-color-state-hover-on-prominent: rgba(54, 245, 155, .14) !important;
+  --sys-color-state-ripple-neutral-on-subtle: rgba(54, 245, 155, .12) !important;
+  --sys-color-state-riple-neutral-on-subtle: rgba(54, 245, 155, .12) !important;
+  --sys-color-state-ripple-neutral-on-prominent: rgba(54, 245, 155, .2) !important;
+  --sys-color-state-ripple-primary: rgba(54, 245, 155, .25) !important;
+  --sys-color-state-header-hover: #0f2a1c !important;
+  --sys-color-state-on-header-hover: #36f59b !important;
+  --sys-color-state-focus-ring: #36f59b !important;
+  --sys-color-state-focus-highlight: rgba(54, 245, 155, .16) !important;
+  --sys-color-state-focus-select: rgba(54, 245, 155, .22) !important;
+  --sys-color-state-text-highlight: rgba(255, 198, 92, .35) !important;
+  --sys-color-state-on-text-highlight: #e8f5ec !important;
+  --sys-color-state-disabled: rgba(169, 201, 181, .38) !important;
+  --sys-color-state-disabled-container: rgba(169, 201, 181, .12) !important;
+  --sys-color-state-scrim: rgba(2, 6, 4, .7) !important;
+
+  /* errors and warnings */
+  --sys-color-error: #ff5f6d !important;
+  --sys-color-error-bright: #ff8a94 !important;
+  --sys-color-on-error: #040a07 !important;
+  --sys-color-error-container: #2a0f13 !important;
+  --sys-color-on-error-container: #ffb3b9 !important;
+  --sys-color-error-outline: #6b2730 !important;
+  --sys-color-surface-error: #1c0a0d !important;
+  --sys-color-on-surface-error: #ff8a94 !important;
+  --sys-color-warning: #ffc65c !important;
+  --sys-color-yellow: #ffc65c !important;
+  --sys-color-yellow-bright: #ffd98a !important;
+  --sys-color-on-yellow: #040a07 !important;
+  --sys-color-yellow-container: #2a2210 !important;
+  --sys-color-on-yellow-container: #ffd98a !important;
+  --sys-color-yellow-outline: #6b5520 !important;
+  --sys-color-surface-yellow: #1a160a !important;
+  --sys-color-surface-yellow-high: #2a2210 !important;
+  --sys-color-on-surface-yellow: #ffd98a !important;
+
+  /* syntax highlighting (elements, styles, sources, console) */
+  --sys-color-token-tag: #36f59b !important;
+  --sys-color-token-attribute: #4fd8e8 !important;
+  --sys-color-token-attribute-value: #ffc65c !important;
+  --sys-color-token-property: #4fd8e8 !important;
+  --sys-color-token-property-special: #b48cff !important;
+  --sys-color-token-string: #ffc65c !important;
+  --sys-color-token-string-special: #ff9a5c !important;
+  --sys-color-token-number: #b48cff !important;
+  --sys-color-token-atom: #b48cff !important;
+  --sys-color-token-keyword: #36f59b !important;
+  --sys-color-token-builtin: #4fd8e8 !important;
+  --sys-color-token-definition: #e8f5ec !important;
+  --sys-color-token-variable: #a9c9b5 !important;
+  --sys-color-token-variable-special: #4fd8e8 !important;
+  --sys-color-token-type: #74ff7a !important;
+  --sys-color-token-pseudo-element: #ff9a5c !important;
+  --sys-color-token-comment: #5f8270 !important;
+  --sys-color-token-meta: #5f8270 !important;
+  --sys-color-token-inserted: #36f59b !important;
+  --sys-color-token-deleted: #ff5f6d !important;
+}
+
+::selection { background: #36f59b; color: #040a07; }

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PRISM chrome</title>
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="chrome.css">
+</head>
+<body>
+<div id="chrome">
+  <i class="scanlines" aria-hidden="true"></i>
+
+  <!-- tab strip -->
+  <div class="strip">
+    <div class="brand" title="PRISM · built and maintained by Synterra">
+      <img src="logo.svg" alt="">
+      <span class="name" data-text="PRISM">PRISM</span><i class="cursor"></i>
+    </div>
+    <div id="tabs" class="tabs" role="tablist"></div>
+    <button id="newtab" class="icon-btn add" title="New tab (Ctrl+T) · right-click for containers, temporary session, sandbox">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <button id="newtab-menu" class="icon-btn caret" title="Containers, temporary session, sandbox">
+      <svg viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></svg>
+    </button>
+    <div class="spacer"></div>
+    <div id="toast" class="toast" aria-live="polite"></div>
+    <div class="readout" title="Session telemetry: requests / blocked / clock">
+      <span><b class="k">REQ</b><b id="r-req">0</b></span>
+      <span><b class="k">BLK</b><b id="r-blk">0</b></span>
+      <span class="rec"><i class="dot"></i><b class="k">OTR</b></span>
+      <span id="r-clock" class="clock">00:00:00</span>
+    </div>
+  </div>
+
+  <!-- navigation bar -->
+  <div class="nav">
+    <button id="back" class="icon-btn" title="Back (Alt+Left)">
+      <svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <button id="forward" class="icon-btn" title="Forward (Alt+Right)">
+      <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+    </button>
+    <button id="reload" class="icon-btn" title="Reload (Ctrl+R)">
+      <svg class="i-reload" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></svg>
+      <svg class="i-stop" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+    <button id="home" class="icon-btn" title="Dashboard (Alt+Home)">
+      <svg viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v4h-7zM13 10h7v10h-7zM4 13h7v7H4z"/></svg>
+    </button>
+
+    <form id="addr-form" class="addr" autocomplete="off">
+      <span class="prompt">&gt;</span>
+      <button type="button" id="ctr" class="ctr" hidden title="Container: click to reopen this tab elsewhere"></button>
+      <span id="lock" class="lock" title=""></span>
+      <button type="button" id="trust" class="trust" hidden title="Website trust score: click for the full report"></button>
+      <div class="field">
+        <input id="addr" type="text" spellcheck="false"
+               placeholder="search LibreSearch or enter address_">
+        <div id="addr-display" class="addr-display"></div>
+      </div>
+      <button type="button" id="jsoff" class="jsoff" hidden title="JavaScript is off for this page"></button>
+      <span id="dns" class="dnsflag" hidden title="Encrypted DNS is on">DoH</span>
+      <span id="zoom" class="zoom" hidden></span>
+      <kbd class="kbd">Ctrl K</kbd>
+      <div id="progress" class="progress"><i></i></div>
+    </form>
+
+    <div class="tools">
+      <button id="t-split" class="icon-btn" title="Split view (Ctrl+\)">
+        <svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM12 5v14"/></svg>
+      </button>
+      <button id="t-resp" class="icon-btn" title="Responsive preview (Ctrl+Shift+M)">
+        <svg viewBox="0 0 24 24"><path d="M3 5h12v10H3zM7 19h4M17 9h4v11h-4z"/></svg>
+      </button>
+      <button id="t-insp" class="icon-btn" title="Design inspector (Ctrl+Shift+C)">
+        <svg viewBox="0 0 24 24"><path d="M4 4h6M4 4v6M20 4h-6M20 4v6M4 20h6M4 20v-6M12 12l7 7M12 12l1.5 5 1.2-2.3 2.3-1.2z"/></svg>
+      </button>
+      <button id="t-term" class="icon-btn" title="Terminal (Ctrl+`)">
+        <svg viewBox="0 0 24 24"><path d="M3 5h18v14H3zM7 10l3 2-3 2M12 15h5"/></svg>
+      </button>
+      <button id="t-panel" class="icon-btn" title="PRISM panel: site report, network, source, API tester, vault… (Ctrl+B)">
+        <svg viewBox="0 0 24 24"><path d="M3 4h18v16H3zM15 4v16M17.5 8h1M17.5 11h1M17.5 14h1"/></svg>
+      </button>
+    </div>
+    <button id="shield" class="chip shield" title="Ads &amp; trackers blocked on this page. Click to turn the shield off for this site.">
+      <svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.4-3 7.8-7 9-4-1.2-7-4.6-7-9V6z"/><path class="tick" d="M9 12l2 2 4-4"/></svg>
+      <span id="blocked">0</span>
+    </button>
+    <button id="purge" class="chip purge" title="Purge session: close all tabs and wipe cookies, cache, history (Ctrl+Shift+Del)">
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>
+      <span class="label">purge</span>
+    </button>
+    <button id="devtools" class="icon-btn" title="Developer tools (F12)">
+      <svg viewBox="0 0 24 24"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/></svg>
+    </button>
+  </div>
+
+  <!-- permission prompt -->
+  <div id="permbar" class="bar permbar" hidden>
+    <svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.4-3 7.8-7 9-4-1.2-7-4.6-7-9V6z"/><path d="M12 8v5M12 16v.5"/></svg>
+    <span class="msg"><b id="perm-site"></b> wants to use your <b id="perm-what"></b></span>
+    <label class="remember"><input type="checkbox" id="perm-remember"> remember for this site</label>
+    <button id="perm-allow" class="chip allow">Allow</button>
+    <button id="perm-block" class="chip block">Block</button>
+    <button id="perm-center" class="link-btn">Permission center</button>
+  </div>
+
+  <!-- responsive preview -->
+  <div id="devbar" class="bar devbar" hidden>
+    <span class="prompt">viewport&gt;</span>
+    <div id="presets" class="presets"></div>
+    <span class="dims">
+      <input id="dev-w" type="number" min="200" max="3840" title="Width (CSS px)">
+      <span class="x">×</span>
+      <input id="dev-h" type="number" min="200" max="2560" title="Height (CSS px)">
+    </span>
+    <button id="dev-rotate" class="icon-btn" title="Rotate">
+      <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 13.66-5.66M20 4v5h-5M20 12a8 8 0 0 1-13.66 5.66M4 20v-5h5"/></svg>
+    </button>
+    <span id="dev-scale" class="scale"></span>
+    <button id="dev-close" class="link-btn">exit preview</button>
+  </div>
+
+  <!-- find bar -->
+  <div id="findbar" class="findbar" hidden>
+    <span class="prompt">find&gt;</span>
+    <input id="find" type="text" spellcheck="false" placeholder="find in page_">
+    <span id="find-count" class="find-count"></span>
+    <button id="find-prev" class="icon-btn" title="Previous (Shift+Enter)">
+      <svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg>
+    </button>
+    <button id="find-next" class="icon-btn" title="Next (Enter)">
+      <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <button id="find-close" class="icon-btn" title="Close (Esc)">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+</div>
+<script src="chrome.js"></script>
+</body>
+</html>

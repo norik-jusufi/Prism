@@ -1,0 +1,10 @@
+# Build tools for the PRISM installers (installed next to requirements.txt in
+# build/venv by build_linux.sh / build_windows.bat). Exact versions, like
+# requirements.txt, so every build is made the same way.
+pyinstaller==6.22.3
+pyinstaller-hooks-contrib==2026.10
+altgraph==0.17.5
+packaging==26.3
+setuptools==84.2.1
+pefile==2024.8.26; sys_platform == "win32"
+pywin32-ctypes==0.2.3; sys_platform == "win32"

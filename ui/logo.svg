@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <clipPath id="tri"><polygon points="256,92 420,376 92,376"/></clipPath>
+    <linearGradient id="face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#36f59b" stop-opacity=".24"/>
+      <stop offset="1" stop-color="#36f59b" stop-opacity=".04"/>
+    </linearGradient>
+    <linearGradient id="side" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#36f59b" stop-opacity=".10"/>
+      <stop offset="1" stop-color="#36f59b" stop-opacity=".02"/>
+    </linearGradient>
+    <linearGradient id="inner" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".75"/>
+      <stop offset="1" stop-color="#36f59b" stop-opacity=".35"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset=".35" stop-color="#ffffff" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#ffffff"/>
+    </linearGradient>
+    <style>
+      .flow  { stroke-dasharray: 14 10; animation: flow 1.2s linear infinite; }
+      .pulse { animation: pulse 2.4s ease-in-out infinite; }
+      .scan  { animation: scan 3.6s ease-in-out infinite; }
+      .spin  { transform-box: fill-box; transform-origin: center; animation: spin 14s linear infinite; }
+      .spinr { transform-box: fill-box; transform-origin: center; animation: spin 9s linear infinite reverse; }
+      .blink { animation: blink 1.6s steps(1) infinite; }
+      @keyframes flow  { to { stroke-dashoffset: -48; } }
+      @keyframes pulse { 50% { opacity: .35; } }
+      @keyframes scan  { 0%,100% { transform: translateY(0); } 50% { transform: translateY(250px); } }
+      @keyframes spin  { to { transform: rotate(360deg); } }
+      @keyframes blink { 50% { opacity: 0; } }
+    </style>
+  </defs>
+  <g transform="translate(0 24)">
+
+  <!-- incoming white beam -->
+  <line x1="18" y1="300" x2="166" y2="250" stroke="url(#beam)" stroke-width="7" stroke-linecap="round" filter="url(#glow)"/>
+  <g fill="#ffffff" opacity=".7">
+    <rect x="44" y="289" width="4" height="4"/><rect x="70" y="280" width="4" height="4"/><rect x="96" y="271" width="4" height="4"/>
+  </g>
+
+  <!-- back face + depth edges -->
+  <polygon points="278,76 442,360 114,360" fill="none" stroke="#36f59b" stroke-width="2" stroke-linejoin="round" opacity=".3"/>
+  <polygon points="256,92 278,76 442,360 420,376" fill="url(#side)"/>
+  <g stroke="#36f59b" stroke-width="2" opacity=".45">
+    <line x1="256" y1="92" x2="278" y2="76"/>
+    <line x1="420" y1="376" x2="442" y2="360"/>
+    <line x1="92" y1="376" x2="114" y2="360" stroke-dasharray="4 4"/>
+  </g>
+
+  <!-- prism body: transparent green grid -->
+  <polygon points="256,92 420,376 92,376" fill="url(#face)"/>
+  <g clip-path="url(#tri)" stroke="#36f59b" stroke-width="1.5" opacity=".35">
+    <path d="M92 116H420M92 140H420M92 164H420M92 188H420M92 212H420M92 236H420M92 260H420M92 284H420M92 308H420M92 332H420M92 356H420"/>
+    <path d="M112 92V376M136 92V376M160 92V376M184 92V376M208 92V376M232 92V376M256 92V376M280 92V376M304 92V376M328 92V376M352 92V376M376 92V376M400 92V376"/>
+  </g>
+  <g clip-path="url(#tri)" stroke="#36f59b" stroke-width=".75" opacity=".16">
+    <path d="M92 104H420M92 128H420M92 152H420M92 176H420M92 200H420M92 224H420M92 248H420M92 272H420M92 296H420M92 320H420M92 344H420M92 368H420"/>
+    <path d="M100 92V376M124 92V376M148 92V376M172 92V376M196 92V376M220 92V376M244 92V376M268 92V376M292 92V376M316 92V376M340 92V376M364 92V376M388 92V376M412 92V376"/>
+  </g>
+  <!-- grid intersections -->
+  <g clip-path="url(#tri)" fill="#36f59b" opacity=".55">
+    <rect x="110.5" y="114.5" width="3" height="3"/><rect x="158.5" y="114.5" width="3" height="3"/><rect x="206.5" y="114.5" width="3" height="3"/><rect x="254.5" y="114.5" width="3" height="3"/><rect x="302.5" y="114.5" width="3" height="3"/><rect x="350.5" y="114.5" width="3" height="3"/><rect x="398.5" y="114.5" width="3" height="3"/><rect x="110.5" y="162.5" width="3" height="3"/><rect x="158.5" y="162.5" width="3" height="3"/><rect x="206.5" y="162.5" width="3" height="3"/><rect x="254.5" y="162.5" width="3" height="3"/><rect x="302.5" y="162.5" width="3" height="3"/><rect x="350.5" y="162.5" width="3" height="3"/><rect x="398.5" y="162.5" width="3" height="3"/><rect x="110.5" y="210.5" width="3" height="3"/><rect x="158.5" y="210.5" width="3" height="3"/><rect x="206.5" y="210.5" width="3" height="3"/><rect x="254.5" y="210.5" width="3" height="3"/><rect x="302.5" y="210.5" width="3" height="3"/><rect x="350.5" y="210.5" width="3" height="3"/><rect x="398.5" y="210.5" width="3" height="3"/><rect x="110.5" y="258.5" width="3" height="3"/><rect x="158.5" y="258.5" width="3" height="3"/><rect x="206.5" y="258.5" width="3" height="3"/><rect x="254.5" y="258.5" width="3" height="3"/><rect x="302.5" y="258.5" width="3" height="3"/><rect x="350.5" y="258.5" width="3" height="3"/><rect x="398.5" y="258.5" width="3" height="3"/><rect x="110.5" y="306.5" width="3" height="3"/><rect x="158.5" y="306.5" width="3" height="3"/><rect x="206.5" y="306.5" width="3" height="3"/><rect x="254.5" y="306.5" width="3" height="3"/><rect x="302.5" y="306.5" width="3" height="3"/><rect x="350.5" y="306.5" width="3" height="3"/><rect x="398.5" y="306.5" width="3" height="3"/><rect x="110.5" y="354.5" width="3" height="3"/><rect x="158.5" y="354.5" width="3" height="3"/><rect x="206.5" y="354.5" width="3" height="3"/><rect x="254.5" y="354.5" width="3" height="3"/><rect x="302.5" y="354.5" width="3" height="3"/><rect x="350.5" y="354.5" width="3" height="3"/><rect x="398.5" y="354.5" width="3" height="3"/>
+  </g>
+  <g clip-path="url(#tri)">
+    <rect class="scan" x="92" y="80" width="330" height="10" fill="#36f59b" opacity=".25"/>
+  </g>
+
+  <!-- refraction inside the prism -->
+  <polygon points="166,250 334,206 342,258" fill="url(#inner)" opacity=".8"/>
+  <g stroke="#ffffff" stroke-width="1" opacity=".35">
+    <line x1="166" y1="250" x2="336" y2="219"/><line x1="166" y1="250" x2="338" y2="232"/><line x1="166" y1="250" x2="340" y2="245"/>
+  </g>
+  <!-- faint internal reflection -->
+  <polyline points="342,258 270,376 152,272" fill="none" stroke="#36f59b" stroke-width="1" stroke-dasharray="2 5" opacity=".35"/>
+
+  <polygon points="256,92 420,376 92,376" fill="none" stroke="#36f59b" stroke-width="7" stroke-linejoin="round" filter="url(#glow)"/>
+  <polygon points="256,92 420,376 92,376" fill="none" stroke="#eafff3" stroke-width="1.5" stroke-linejoin="round" opacity=".55"/>
+  <g fill="#eafff3">
+    <rect x="250" y="86" width="12" height="12"/>
+    <rect x="86" y="370" width="12" height="12"/>
+    <rect x="414" y="370" width="12" height="12"/>
+  </g>
+  <g fill="none" stroke="#36f59b" stroke-width="1.5" opacity=".7">
+    <rect x="245" y="81" width="22" height="22"/>
+    <rect x="81" y="365" width="22" height="22"/>
+    <rect x="409" y="365" width="22" height="22"/>
+  </g>
+  <g fill="#eafff3" opacity=".6">
+    <rect x="275" y="73" width="6" height="6"/>
+    <rect x="439" y="357" width="6" height="6"/>
+  </g>
+
+  <!-- outgoing spectrum, rendered in greens -->
+  <g stroke-width="7" stroke-linecap="round" fill="none">
+    <line class="flow" x1="334" y1="206" x2="494" y2="150" stroke="#eafff3"/><line class="flow" x1="336" y1="219" x2="494" y2="190" stroke="#9dffc9"/><line class="flow" x1="338" y1="232" x2="494" y2="230" stroke="#36f59b"/><line class="flow" x1="340" y1="245" x2="494" y2="270" stroke="#1fc077"/><line class="flow" x1="342" y1="258" x2="494" y2="310" stroke="#138a52"/>
+  </g>
+  <g stroke-width="2" fill="none" opacity=".35">
+    <line x1="334" y1="206" x2="494" y2="150" stroke="#eafff3"/><line x1="336" y1="219" x2="494" y2="190" stroke="#9dffc9"/><line x1="338" y1="232" x2="494" y2="230" stroke="#36f59b"/><line x1="340" y1="245" x2="494" y2="270" stroke="#1fc077"/><line x1="342" y1="258" x2="494" y2="310" stroke="#138a52"/>
+  </g>
+  <!-- exit markers -->
+  <g fill="#eafff3">
+    <rect x="331.5" y="203.5" width="5" height="5"/><rect x="333.5" y="216.5" width="5" height="5"/><rect x="335.5" y="229.5" width="5" height="5"/><rect x="337.5" y="242.5" width="5" height="5"/><rect x="339.5" y="255.5" width="5" height="5"/>
+  </g>
+
+  <!-- entry reticle -->
+  <g fill="none" stroke="#36f59b" stroke-width="1.5">
+    <circle class="spin" cx="166" cy="250" r="20" stroke-dasharray="10 6" opacity=".7"/>
+  </g>
+  <circle class="pulse" cx="166" cy="250" r="9" fill="#ffffff" filter="url(#glow)"/>
+  <circle cx="166" cy="250" r="3.5" fill="#ffffff"/>
+  </g>
+</svg>

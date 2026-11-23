@@ -1,0 +1,16 @@
+# PRISM built-in security list. Pages on these domains show a warning page.
+# The big malware / phishing / cryptominer feeds are fetched by
+# update_blocklists.py into blocklists/downloaded/security.
+#
+# Google's Safe Browsing test page: use it to check that protection works.
+testsafebrowsing.appspot.com
+# Well-known in-browser cryptominers
+coinhive.com
+coin-hive.com
+authedmine.com
+crypto-loot.com
+cryptoloot.pro
+webminepool.com
+jsecoin.com
+minero.cc
+coinimp.com

@@ -1,0 +1,39 @@
+/* PRISM shared design tokens: "digital green" terminal look. */
+:root {
+  --bg:        #040a07;
+  --bg-1:      #07110c;
+  --bg-2:      #0b1a12;
+  --bg-3:      #10261a;
+  --line:      #163826;
+  --line-2:    #1f5537;
+  --green:     #36f59b;
+  --green-hi:  #74ff7a;
+  --green-dim: #1fa866;
+  --green-glow: rgba(54, 245, 155, .35);
+  --text:      #e8f5ec;
+  --text-2:    #a9c9b5;
+  --muted:     #5f8270;
+  --danger:    #ff5f6d;
+  --warn:      #ffc65c;
+  --mono: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", "Fira Code", Consolas, "Courier New", monospace;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--green); color: var(--bg); }
+
+button { font: inherit; color: inherit; }
+
+@keyframes blink { 50% { opacity: 0; } }
+@keyframes spin  { to { transform: rotate(360deg); } }
+
+[hidden] { display: none !important; }

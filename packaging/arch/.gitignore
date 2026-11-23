@@ -1,0 +1,6 @@
+# makepkg output
+/src/
+/pkg/
+/prism/
+*.pkg.tar*
+*.log

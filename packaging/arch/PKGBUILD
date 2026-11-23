@@ -1,0 +1,66 @@
+# PRISM as an Arch Linux package, built from this repository:
+#
+#   cd packaging/arch && makepkg -si
+#
+# Builds what is committed in the clone this file sits in (not uncommitted
+# changes) and installs it with pacman. PRISM runs on Arch's own Python and
+# Qt WebEngine, so `pacman -Syu` brings Chromium security fixes.
+# Update: git pull, then makepkg -si again. Remove: sudo pacman -R prism.
+
+pkgname=prism
+pkgver=1.1.2beta.r0
+pkgrel=1
+pkgdesc="Privacy-first research browser built and maintained by Synterra (ad, tracker and malware blocking, containers, encrypted DNS)"
+arch=('any')
+url="https://github.com/norik-jusufi/Prism"
+license=('LicenseRef-Synterra')
+depends=(
+  'python'
+  'python-pyqt6'
+  'python-pyqt6-webengine'
+  'python-cryptography'      # password vault
+  'python-anthropic'         # design review
+  'qt6-wayland'              # native Wayland windows
+  'xcb-util-cursor'          # X11 / XWayland
+  'hicolor-icon-theme'
+)
+makedepends=('git')
+optdepends=('xdg-utils: make PRISM the default browser with xdg-settings')
+install=prism.install
+_repo=$(realpath "${startdir:-.}/../..")
+source=("prism::git+file://${_repo}")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd prism
+  local version
+  version=$(sed -n 's/^VERSION = "\(.*\)"/\1/p' version.py)
+  printf '%s.r%s' "${version//-/}" "$(git rev-list --count HEAD)"
+}
+
+build() {
+  cd prism
+  # Bundle fresh ad/tracker and malware lists, like the Windows installer does.
+  # Not fatal: PRISM also ships built-in lists, and `prism --update-blocklists`
+  # fetches them later.
+  python update_blocklists.py || echo "==> some blocklists failed to download; building with what is there"
+}
+
+package() {
+  cd prism
+  local lib="$pkgdir/usr/lib/prism"
+  install -d "$lib"
+  install -m644 ./*.py "$lib/"
+  cp -r --no-preserve=ownership ui assets blocklists "$lib/"
+  find "$lib" -name '__pycache__' -prune -exec rm -rf {} +
+  # Tells PRISM it runs from a read-only system package (see paths.py).
+  echo pacman > "$lib/.packaged"
+  python -m compileall -q -d /usr/lib/prism "$lib"
+
+  install -Dm755 packaging/arch/prism.sh "$pkgdir/usr/bin/prism"
+  install -Dm644 packaging/arch/prism.desktop "$pkgdir/usr/share/applications/prism.desktop"
+  install -Dm644 assets/icon.png "$pkgdir/usr/share/icons/hicolor/256x256/apps/prism.png"
+  install -Dm644 assets/icon.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/prism.svg"
+  install -Dm644 README.md "$pkgdir/usr/share/doc/prism/README.md"
+  install -Dm644 deployment.example.json "$pkgdir/usr/share/doc/prism/deployment.example.json"
+}

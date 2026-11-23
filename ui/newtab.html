@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="referrer" content="no-referrer">
+<title>New tab</title>
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="newtab.css">
+</head>
+<body>
+<i class="scanlines" aria-hidden="true"></i>
+<i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+
+<div class="wrap">
+
+  <!-- hero -->
+  <header class="hero">
+    <img class="logo" src="logo.svg" alt="PRISM logo">
+    <div class="hero-main">
+      <p class="kicker"><i class="dash"></i>// built and maintained by synterra <span class="sys">sys.status = <b>SECURE</b></span></p>
+      <h1 class="glitch" data-text="PRISM">PRISM<i class="cursor"></i></h1>
+      <form id="search" class="search" autocomplete="off">
+        <span class="prompt">&gt;</span>
+        <input id="q" type="text" spellcheck="false" autofocus
+               placeholder="search anything, anywhere_" aria-label="Search with LibreSearch">
+        <kbd>Ctrl K</kbd>
+      </form>
+      <nav class="chips" aria-label="Quick links">
+        <a class="chip" href="https://developer.mozilla.org/"><i></i>mdn</a>
+        <a class="chip" href="https://docs.python.org/3/"><i></i>python</a>
+        <a class="chip" href="https://github.com/"><i></i>github</a>
+        <a class="chip" href="https://stackoverflow.com/"><i></i>stackoverflow</a>
+        <a class="chip" href="https://devdocs.io/"><i></i>devdocs</a>
+        <a class="chip" href="https://pypi.org/"><i></i>pypi</a>
+        <a class="chip" href="https://www.npmjs.com/"><i></i>npm</a>
+      </nav>
+    </div>
+  </header>
+
+  <!-- update notices (updates.py) -->
+  <div class="notice" id="notice" role="status" hidden></div>
+
+  <!-- stat tiles -->
+  <section class="tiles" aria-label="Statistics">
+    <div class="tile hot"><span class="lbl">threats blocked</span><b id="t-blocked">0</b><span class="sub" id="t-blocked-sub">ads &amp; trackers</span></div>
+    <div class="tile"><span class="lbl">requests</span><b id="t-requests">0</b><span class="sub" id="t-requests-sub">network calls, all time</span></div>
+    <div class="tile"><span class="lbl">block rate</span><b id="t-rate">0%</b><span class="sub" id="t-rate-sub">of all requests</span></div>
+    <div class="tile"><span class="lbl">trackers stripped</span><b id="t-stripped">0</b><span class="sub">utm / fbclid / gclid…</span></div>
+    <div class="tile"><span class="lbl">3p cookies refused</span><b id="t-cookies">0</b><span class="sub">cross-site cookies</span></div>
+    <div class="tile"><span class="lbl">permissions denied</span><b id="t-perms">0</b><span class="sub">cam / mic / location…</span></div>
+  </section>
+
+  <!-- panels -->
+  <section class="panels">
+    <article class="panel traffic">
+      <header>
+        <h2>traffic <span>// last 10 min · 15 s per bar</span></h2>
+        <div class="legend">
+          <span><i class="sw blk"></i>blocked</span>
+          <span><i class="sw ok"></i>allowed</span>
+        </div>
+      </header>
+      <div class="chart" id="chart">
+        <div class="yaxis" id="yaxis"></div>
+        <div class="bars" id="bars"></div>
+        <div class="tip" id="tip" hidden></div>
+      </div>
+      <div class="xaxis"><span>-10m</span><span>-5m</span><span>now</span></div>
+    </article>
+
+    <article class="panel top">
+      <header><h2>top blocked <span>// domains, all time</span></h2></header>
+      <ol class="toplist" id="toplist"></ol>
+    </article>
+
+    <article class="panel session">
+      <header><h2>activity <span id="k-since">// all time</span></h2></header>
+      <dl class="kv">
+        <dt>uptime</dt><dd id="k-uptime">00:00:00</dd>
+        <dt>pages loaded</dt><dd id="k-pages">0</dd>
+        <dt>sites visited</dt><dd id="k-sites">0</dd>
+        <dt>searches</dt><dd id="k-searches">0</dd>
+        <dt>fallback searches</dt><dd id="k-fallbacks">0</dd>
+        <dt>https pages</dt><dd id="k-https">-</dd>
+        <dt>open tabs</dt><dd id="k-tabs">1</dd>
+        <dt>shield exceptions</dt><dd id="k-exc">0</dd>
+        <dt>blocklist rules</dt><dd id="k-rules">-</dd>
+      </dl>
+      <ul class="prot">
+        <li><b>[on]</b> no history on disk</li>
+        <li><b>[on]</b> dnt + gpc</li>
+        <li><b>[on]</b> webrtc shield</li>
+        <li><b>[on]</b> generic UA</li>
+      </ul>
+    </article>
+  </section>
+
+  <footer class="foot">
+    <span>search: <b id="f-engine">LibreSearch (fallback: DuckDuckGo)</b></span>
+    <span>lists: <b id="f-sources">-</b></span>
+    <span>browser: <b id="f-chromium">-</b></span>
+    <span class="team"><b id="f-version"></b> · <a id="f-team" href="https://www.facebook.com/synterracode">built and maintained by Synterra</a></span>
+  </footer>
+</div>
+
+<script src="newtab.js"></script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+# Exact versions, so every PRISM install runs the same Chromium.
+#
+# PyQt6-WebEngine bundles Chromium: its security fixes only reach PRISM when
+# these pins are raised. PRISM's dashboard says when a newer Qt WebEngine is
+# out (updates.py). Then, on one machine:
+#   1. .venv/bin/python -m pip install -U PyQt6 PyQt6-WebEngine   (Windows: .venv\Scripts\python)
+#   2. .venv/bin/python -m pip freeze   -> copy the new versions below
+#   3. test PRISM, bump VERSION in version.py, commit, push
+# Everyone else: git pull, then pip install -r requirements.txt.
+PyQt6==6.12.1
+PyQt6-Qt6==6.12.0
+PyQt6-sip==13.13.1
+PyQt6-WebEngine==6.140.1
+PyQt6-WebEngine-Qt6==6.140.0
+cryptography==50.0.2
+cffi==2.1.1
+pycparser==3.12
+
+# Design review (designai.py): Anthropic's SDK and what it pulls in.
+anthropic==2.12.0
+annotated-types==0.8.0
+anyio==4.16.0
+docstring_parser==0.18.0
+h11==0.16.0
+httpcore2==2.16.2
+httpx2==2.16.2
+idna==3.20
+jiter==0.19.0
+opentelemetry-api==1.45.2
+pydantic==2.14.4
+pydantic_core==2.50.5
+sniffio==1.3.1
+truststore==0.10.5
+typing-inspection==0.4.5
+typing_extensions==4.16.0

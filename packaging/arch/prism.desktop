@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Name=PRISM
+GenericName=Web Browser
+Comment=Privacy-first research browser
+Exec=prism %U
+Icon=prism
+Terminal=false
+Categories=Network;WebBrowser;
+MimeType=text/html;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
+StartupWMClass=prism
+StartupNotify=true
+Actions=UpdateBlocklists;
+
+[Desktop Action UpdateBlocklists]
+Name=Update blocklists
+Exec=prism --update-blocklists

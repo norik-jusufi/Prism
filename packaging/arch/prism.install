@@ -1,0 +1,20 @@
+post_install() {
+  cat <<'MSG'
+==> PRISM is installed. Start it from your app menu, or run: prism
+==> Make it your default browser:  xdg-settings set default-web-browser prism.desktop
+==> Partner edition for this PC:
+      echo '{"edition": "partner"}' | sudo tee /usr/lib/prism/deployment.json
+==> Fresher blocklists any time:    prism --update-blocklists
+MSG
+}
+
+post_upgrade() {
+  echo "==> PRISM was updated to $1. Restart PRISM to use it."
+}
+
+post_remove() {
+  echo "==> Your PRISM data is still in ~/.local/share/Synterra/PRISM (delete it by hand if you want)."
+  if [ -f /usr/lib/prism/deployment.json ]; then
+    echo "==> /usr/lib/prism/deployment.json was yours, so pacman left it; remove it with: sudo rm -r /usr/lib/prism"
+  fi
+}
