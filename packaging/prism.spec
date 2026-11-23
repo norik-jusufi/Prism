@@ -32,10 +32,17 @@ a = Analysis(                                   # noqa: F821
     datas=datas,
     # Imported lazily (only when the edition/feature is on); list them so the
     # build always has them.
-    hiddenimports=["designai", "terminal", "vault", "update_blocklists"],
+    hiddenimports=["designai", "terminal", "vault", "update_blocklists", "sounds"],
     excludes=["tkinter", "unittest", "pydoc_data"],
     noarchive=False,
 )
+# The intro's sounds (sounds.py) play WAVs through QSoundEffect, which needs
+# Qt Multimedia's own audio output but none of its media-player plugins. Leave
+# out the FFmpeg plugin and its libraries (~20 MB).
+a.binaries = [b for b in a.binaries
+              if "plugins/multimedia/" not in b[0].replace("\\", "/")
+              and not Path(b[0]).name.lower().startswith(("avcodec", "avformat", "avutil", "swresample", "swscale"))]
+
 pyz = PYZ(a.pure)                               # noqa: F821
 
 exe = EXE(                                      # noqa: F821

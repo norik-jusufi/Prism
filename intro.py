@@ -1,30 +1,32 @@
-"""PRISM boot intro: a terminal that "loads" PRISM in, then fades into the browser.
+"""PRISM boot intro: a terminal that boots PRISM, then fades into the browser.
 
-Shown over the whole window for about two seconds at start, while the toolbar
-and the first tab load underneath (so their first paint is never seen). It
-types out a real boot log (version, engine, blocklists, DNS, privacy,
-containers), fills a progress bar, and fades away.
+Shown over the whole window for about four seconds at start, while the
+toolbar and the first tab load underneath (so their first paint is never
+seen). A terminal powers on like a CRT, a command is typed in key by key, the
+PRISM banner prints, the real boot log follows (version, engine, blocklists,
+DNS, privacy, containers), a second command launches the interface, a text
+progress bar fills, and the terminal fades away. Key clicks and digital blips
+play along (sounds.py).
 
 Drawn with QPainter on a plain widget, not a web view: it is on screen the
 moment the window is, and costs nothing once it's gone. Its clock advances at
 most one frame's worth per frame, so when Chromium's start-up briefly stalls
 the UI thread the motion pauses for an instant instead of jumping.
 
-Skip: click or press any key. Off: "intro": false in settings.json, or the
-PRISM_NO_INTRO=1 environment variable.
+Skip: click or press any key. Mute: M (remembered). Off: "intro": false in
+settings.json, or the PRISM_NO_INTRO=1 environment variable. Sound only:
+"introSound": false.
 """
 
 from __future__ import annotations
 
-import math
 import os
+import random
+from dataclasses import dataclass, field
 
 from PyQt6.QtCore import QElapsedTimer, QEvent, QObject, QPointF, QRectF, Qt, QTimer
-from PyQt6.QtGui import (QColor, QFont, QFontMetricsF, QImage, QLinearGradient, QPainter,
-                         QPainterPath, QPen, QPixmap, QRadialGradient)
+from PyQt6.QtGui import QColor, QFont, QFontMetricsF, QLinearGradient, QPainter, QPen, QPixmap, QRadialGradient
 from PyQt6.QtWidgets import QApplication, QWidget
-
-from paths import RESOURCES
 
 BG = QColor("#040a07")
 BG_1 = QColor("#07110c")
@@ -38,17 +40,31 @@ TEXT_2 = QColor("#a9c9b5")
 MUTED = QColor("#5f8270")
 WARN = QColor("#ffc65c")
 
+PROMPT_USER = "synterra@prism"
+PROMPT_PATH = ":~$ "
+BANNER = [
+    "██████╗ ██████╗ ██╗███████╗███╗   ███╗",
+    "██╔══██╗██╔══██╗██║██╔════╝████╗ ████║",
+    "██████╔╝██████╔╝██║███████╗██╔████╔██║",
+    "██╔═══╝ ██╔══██╗██║╚════██║██║╚██╔╝██║",
+    "██║     ██║  ██║██║███████║██║ ╚═╝ ██║",
+    "╚═╝     ╚═╝  ╚═╝╚═╝╚══════╝╚═╝     ╚═╝",
+]
+GLYPHS = "▓▒░<>/\\|[]{}=+*#%&$@01"
+
 # Timeline (ms).
-T_LOGO = 0            # logo + wordmark fade in
-T_LINES = 380         # first boot line starts typing
-LINE_TYPE = 150       # typing one line
-LINE_GAP = 45         # pause before the next one
-T_STATUS = 70         # "[ ok ]" lands this long after its line is typed
-BAR_TIME = 380        # progress bar fill
-HOLD = 200            # full bar, "ready"
-FADE = 450            # fade into the browser
-SKIP_FADE = 220       # faster fade when skipped
-MAX_STEP = 20         # most intro time one frame may advance (ms)
+T_POWER = 260          # CRT power-on: a line of light opens into the screen
+KEY_MIN, KEY_MAX = 14, 38   # one typed key
+ENTER_PAUSE = 110      # after the return key, before the output
+BANNER_ROW = 34        # one banner row
+LOG_ROW = 95           # one boot-log row
+DECODE = 120           # scrambled glyphs settle into text
+STATUS_AFTER = 60      # "[ ok ]" lands this long after its row
+BAR_TIME = 480         # progress bar fill
+HOLD = 260             # "ready", then fade
+FADE = 450             # fade into the browser
+SKIP_FADE = 220        # faster fade when skipped
+MAX_STEP = 20          # most intro time one frame may advance (ms)
 
 
 def enabled(settings) -> bool:
@@ -98,21 +114,87 @@ def with_alpha(c: QColor, a: float) -> QColor:
     return c
 
 
+# ------------------------------------------------------------- the script
+@dataclass
+class Row:
+    """One line on the terminal and when it appears."""
+    kind: str                      # "cmd" | "banner" | "text" | "log" | "bar" | "blank"
+    start: int                     # ms
+    text: str = ""
+    label: str = ""
+    status: str = ""
+    keys: list[int] = field(default_factory=list)   # "cmd": ms each character lands
+    end: int = 0                   # "cmd": return pressed; "bar": full
+
+
+def build_script(lines: list[tuple[str, str, str]], version: str) -> tuple[list[Row], list[tuple[int, str]], int]:
+    """Rows, the sound cues [(ms, name)] and the time the fade starts."""
+    rnd = random.Random(1123)      # same rhythm every start
+    rows: list[Row] = []
+    cues: list[tuple[int, str]] = []
+    t = T_POWER + 120
+
+    def command(text: str) -> None:
+        nonlocal t
+        row = Row("cmd", t, text)
+        k = t + 140                                   # the cursor blinks once first
+        for ch in text:
+            k += rnd.randint(KEY_MIN, KEY_MAX) + (45 if ch == " " and rnd.random() < 0.35 else 0)
+            row.keys.append(k)
+            cues.append((k, "key"))
+        row.end = k + 70
+        cues.append((row.end, "enter"))
+        rows.append(row)
+        t = row.end + ENTER_PAUSE
+
+    command("./prism --boot --secure")
+    for i, art in enumerate(BANNER):
+        rows.append(Row("banner", t, art))
+        cues.append((t, "data" if i == 0 else "tick"))
+        t += BANNER_ROW
+    t += 40
+    rows.append(Row("text", t, f"   v{version} · privacy-first research browser · built and maintained by synterra"))
+    cues.append((t, "blip2"))
+    t += 120
+    rows.append(Row("blank", t))
+    for label, detail, status in lines:
+        rows.append(Row("log", t, detail, label, status))
+        cues.append((t, "blip"))
+        cues.append((t + DECODE + STATUS_AFTER, {"ok": "ok", "--": "tick"}.get(status, "warn")))
+        t += LOG_ROW
+    t += 90
+    rows.append(Row("blank", t))
+    command("launch --interface")
+    bar = Row("bar", t, end=t + BAR_TIME)
+    rows.append(bar)
+    for i in range(1, 10):
+        cues.append((t + BAR_TIME * i // 10, "tick"))
+    t = bar.end
+    cues.append((t, "ready"))
+    rows.append(Row("text", t + 30, "ready. opening prism", status="ready"))
+    cues.sort()
+    return rows, cues, t + HOLD
+
+
+# ----------------------------------------------------------------- widget
 class BootIntro(QWidget):
-    def __init__(self, window: QWidget, lines: list[tuple[str, str, str]]):
+    def __init__(self, window: QWidget, lines: list[tuple[str, str, str]], version: str = "",
+                 settings=None, sfx=None):
         super().__init__(window)
         self.window_ = window
-        self.lines = lines
+        self.settings = settings
+        self.sfx = sfx                            # sounds.Sfx, or None for silence
+        self.rows, self.cues, self.t_fade = build_script(lines, version)
+        self._cue = 0
         self.clock = QElapsedTimer()
         self.fade_from: int | None = None          # ms when the fade-out started
         self.fade_len = FADE
         self.done = False
         self.t = 0.0                               # intro time (ms), see _frame
-        self.logo = QImage(str(RESOURCES / "assets" / "logo.png"))
+        self.muted_note = 0.0                      # when M was pressed (for the hint)
         self._backdrop: QPixmap | None = None
-        n = len(lines)
-        self.t_bar = T_LINES + n * (LINE_TYPE + LINE_GAP) + T_STATUS
-        self.t_fade = self.t_bar + BAR_TIME + HOLD
+        self._scroll = 0.0
+        self._glitch = random.Random(5)
 
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent, False)
         self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
@@ -134,7 +216,20 @@ class BootIntro(QWidget):
     def skip(self) -> None:
         if self.fade_from is None:
             self.fade_from, self.fade_len = self.t, SKIP_FADE
+            if self.sfx:
+                self.sfx.stop()
         self.setCursor(Qt.CursorShape.ArrowCursor)
+
+    def toggle_mute(self) -> None:
+        if not self.sfx:
+            return
+        self.sfx.enabled = not self.sfx.enabled
+        if not self.sfx.enabled:
+            self.sfx.stop()
+        self.muted_note = self.t
+        if self.settings is not None:
+            self.settings.data["introSound"] = self.sfx.enabled
+            self.settings.save()
 
     def _finish(self) -> None:
         if self.done:
@@ -152,6 +247,7 @@ class BootIntro(QWidget):
         # the animation pauses for that moment instead of jumping ahead.
         self.t += min(self.clock.restart(), MAX_STEP)
         t = self.t
+        self._play_cues(t)
         if self.fade_from is None and t >= self.t_fade:
             self.fade_from = self.t_fade
             self.setCursor(Qt.CursorShape.ArrowCursor)
@@ -159,6 +255,15 @@ class BootIntro(QWidget):
             self._finish()
             return
         self.update()
+
+    def _play_cues(self, t: float) -> None:
+        while self._cue < len(self.cues) and self.cues[self._cue][0] <= t:
+            at, name = self.cues[self._cue]
+            self._cue += 1
+            # Skipped, or more than a frame late (a stall): stay quiet rather
+            # than fire a burst of stale sounds at once.
+            if self.sfx and self.fade_from is None and t - at < 60:
+                self.sfx.key() if name == "key" else self.sfx.play(name)
 
     def eventFilter(self, obj: QObject, ev: QEvent) -> bool:  # noqa: N802
         kind = ev.type()
@@ -168,6 +273,9 @@ class BootIntro(QWidget):
         elif kind in (QEvent.Type.KeyPress, QEvent.Type.MouseButtonPress) and not self.done:
             if kind == QEvent.Type.MouseButtonPress and not self._is_mine(obj):
                 return False
+            if kind == QEvent.Type.KeyPress and ev.key() == Qt.Key.Key_M and self.fade_from is None:
+                self.toggle_mute()
+                return True
             self.skip()
             return True                      # the key or click only skips the intro
         return False
@@ -177,7 +285,7 @@ class BootIntro(QWidget):
 
     # ------------------------------------------------------------ painting
     def _make_backdrop(self) -> QPixmap:
-        """Background, grid, vignette and scanlines: drawn once per size."""
+        """Background, faint grid, vignette and scanlines: drawn once per size."""
         dpr = self.devicePixelRatioF()
         w, h = self.width(), self.height()
         pm = QPixmap(round(w * dpr), round(h * dpr))
@@ -186,7 +294,7 @@ class BootIntro(QWidget):
         p = QPainter(pm)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         step = 32
-        p.setPen(QPen(with_alpha(LINE, 0.55), 1))
+        p.setPen(QPen(with_alpha(LINE, 0.35), 1))
         x = (w / 2) % step
         while x < w:
             p.drawLine(QPointF(x, 0), QPointF(x, h))
@@ -195,237 +303,259 @@ class BootIntro(QWidget):
         while y < h:
             p.drawLine(QPointF(0, y), QPointF(w, y))
             y += step
-        glow = QRadialGradient(QPointF(w / 2, h * 0.42), max(w, h) * 0.55)
-        glow.setColorAt(0, with_alpha(GREEN, 0.07))
+        glow = QRadialGradient(QPointF(w / 2, h * 0.45), max(w, h) * 0.6)
+        glow.setColorAt(0, with_alpha(GREEN, 0.06))
         glow.setColorAt(1, with_alpha(GREEN, 0))
         p.fillRect(QRectF(0, 0, w, h), glow)
         vig = QRadialGradient(QPointF(w / 2, h / 2), max(w, h) * 0.75)
-        vig.setColorAt(0.55, QColor(0, 0, 0, 0))
-        vig.setColorAt(1, QColor(0, 0, 0, 150))
+        vig.setColorAt(0.5, QColor(0, 0, 0, 0))
+        vig.setColorAt(1, QColor(0, 0, 0, 170))
         p.fillRect(QRectF(0, 0, w, h), vig)
-        p.setPen(QPen(QColor(0, 0, 0, 34), 1))
-        y = 0.5
-        while y < h:
-            p.drawLine(QPointF(0, y), QPointF(w, y))
-            y += 3
         p.end()
         return pm
 
+    def _screen_rect(self, w: float, h: float) -> QRectF:
+        sw = min(980.0, w - 48.0)
+        sh = min(620.0, h - 48.0)
+        return QRectF((w - sw) / 2, (h - sh) / 2, sw, sh)
+
     def paintEvent(self, _ev) -> None:  # noqa: N802
-        t = int(self.t)
+        t = self.t
         w, h = self.width(), self.height()
-        fade = 0.0
-        if self.fade_from is not None:
-            fade = ease_in_out((t - self.fade_from) / self.fade_len)
+        fade = ease_in_out((t - self.fade_from) / self.fade_len) if self.fade_from is not None else 0.0
         alpha = 1.0 - fade
 
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         if self._backdrop is None or self._backdrop.deviceIndependentSize().toSize() != self.size():
             self._backdrop = self._make_backdrop()
         p.setOpacity(alpha)
         p.drawPixmap(0, 0, self._backdrop)
 
-        # Content drifts up a little as it fades out.
-        lift = -18 * fade
-        p.translate(0, lift)
-        scale = min(1.0, w / 900, h / 640) if w and h else 1.0
-        scale = max(0.62, scale)
-        col_w = min(680.0, w - 64.0)
-        x0 = (w - col_w) / 2
-        y = max(24.0, h * 0.5 - 250 * scale)
+        screen = self._screen_rect(w, h)
+        # Fading out, the terminal sinks back a little.
+        if fade:
+            k = 1 - 0.03 * fade
+            c = screen.center()
+            screen = QRectF(c.x() - screen.width() * k / 2, c.y() - screen.height() * k / 2 + 10 * fade,
+                            screen.width() * k, screen.height() * k)
 
-        y = self._draw_brand(p, t, x0, y, col_w, scale, alpha)
-        y = self._draw_terminal(p, t, x0, y + 26 * scale, col_w, scale, alpha)
-        self._draw_bar(p, t, x0, y + 18 * scale, col_w, scale, alpha)
-
-        # Sweeping scan beam across the whole screen while booting.
-        if self.fade_from is None:
-            beam_y = (t * 0.55) % (h + 160) - 80
-            g = QLinearGradient(0, beam_y - 70, 0, beam_y)
-            g.setColorAt(0, with_alpha(GREEN, 0))
-            g.setColorAt(1, with_alpha(GREEN, 0.045))
+        # CRT power-on: a bright line opens vertically into the screen.
+        power = ease_out(t / T_POWER)
+        if power < 1:
+            open_h = max(2.0, screen.height() * power ** 1.6)
+            band = QRectF(screen.left() + screen.width() * 0.5 * (1 - min(1.0, power * 3)), screen.center().y() - open_h / 2,
+                          screen.width() * min(1.0, power * 3), open_h)
             p.setOpacity(alpha)
-            p.fillRect(QRectF(0, beam_y - 70 - lift, w, 70), g)
+            p.fillRect(band, with_alpha(BG_1, 0.95))
+            p.fillRect(QRectF(band.left(), screen.center().y() - 1, band.width(), 2), with_alpha(GREEN_HI, 1 - power))
+            p.end()
+            return
+
+        self._draw_frame(p, screen, t, alpha)
         p.end()
 
-    def _draw_brand(self, p: QPainter, t: int, x0: float, y: float, col_w: float, s: float, alpha: float) -> float:
-        k = ease_out((t - T_LOGO) / 520)
-        logo_px = 112 * s
-        cx = x0 + col_w / 2
-        # logo: fades in and settles from slightly larger
-        if not self.logo.isNull():
-            size = logo_px * (1.08 - 0.08 * k)
-            pulse = 0.85 + 0.15 * math.sin(t / 380)
-            p.setOpacity(alpha * k)
-            halo = QRadialGradient(QPointF(cx, y + logo_px / 2), logo_px * 0.9)
-            halo.setColorAt(0, with_alpha(GREEN, 0.16 * pulse))
-            halo.setColorAt(1, with_alpha(GREEN, 0))
-            p.fillRect(QRectF(cx - logo_px, y - logo_px * 0.4, logo_px * 2, logo_px * 1.8), halo)
-            p.drawImage(QRectF(cx - size / 2, y + (logo_px - size) / 2, size, size), self.logo)
-        y += logo_px + 6 * s
+    def _draw_frame(self, p: QPainter, screen: QRectF, t: float, alpha: float) -> None:
+        s = max(0.7, min(1.0, screen.width() / 980, screen.height() / 620))
+        head_h = 30 * s
+        pad = 22 * s
 
-        # wordmark with a short RGB-split glitch as it lands
-        font = mono(46 * s, bold=True)
-        font.setLetterSpacing(QFont.SpacingType.PercentageSpacing, 118)
-        p.setFont(font)
-        fm = QFontMetricsF(font)
-        word = "PRISM"
-        shown = word[:max(0, min(len(word), int((t - 120) / 55)))]
-        tw = fm.horizontalAdvance(word)
-        bx, by = cx - tw / 2, y + fm.ascent()
-        glitch = max(0.0, 1 - (t - 120 - len(word) * 55) / 360) if shown == word else 1.0
-        if 0 < k:
-            if glitch > 0 and shown:
-                off = 3.5 * s * glitch * (1 if (t // 40) % 2 else -1)
-                p.setOpacity(alpha * 0.55 * glitch)
+        # window: glow, body, border, title bar
+        p.setOpacity(alpha)
+        halo = QRadialGradient(screen.center(), max(screen.width(), screen.height()) * 0.7)
+        halo.setColorAt(0, with_alpha(GREEN, 0.05))
+        halo.setColorAt(1, with_alpha(GREEN, 0))
+        p.fillRect(screen.adjusted(-60, -60, 60, 60), halo)
+        p.fillRect(screen, with_alpha(BG_1, 0.97))
+        p.setPen(QPen(LINE_2, 1))
+        p.drawRect(screen)
+        bar = QRectF(screen.left(), screen.top(), screen.width(), head_h)
+        p.fillRect(bar, QColor("#0a1811"))
+        p.setPen(QPen(LINE, 1))
+        p.drawLine(bar.bottomLeft(), bar.bottomRight())
+        for i, c in enumerate((GREEN, GREEN_DIM, LINE_2)):
+            p.setBrush(c)
+            p.setPen(Qt.PenStyle.NoPen)
+            p.drawEllipse(QPointF(bar.left() + 16 * s + i * 16 * s, bar.center().y()), 4.2 * s, 4.2 * s)
+        p.setFont(mono(12 * s))
+        p.setPen(MUTED)
+        p.drawText(bar, Qt.AlignmentFlag.AlignCenter, "prism — synterra secure shell — 80×24")
+        live = self.fade_from is None and t < self.t_fade
+        p.setPen(GREEN if live else GREEN_DIM)
+        p.drawText(bar.adjusted(0, 0, -14 * s, 0), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight,
+                   "● live" if live else "● ready")
+
+        # terminal text, scrolled so the newest row stays in view
+        body = QRectF(screen.left() + pad, bar.bottom() + pad * 0.7, screen.width() - 2 * pad,
+                      screen.height() - head_h - pad * 1.5 - 18 * s)
+        f = mono(15 * s)
+        fb = mono(15 * s, bold=True)
+        fm = QFontMetricsF(f)
+        line_h = fm.height() * 1.32
+        banner_f = mono(min(22 * s, body.width() / (len(BANNER[0]) + 4) / 0.6), bold=True)
+        banner_h = QFontMetricsF(banner_f).height() * 1.0
+        shown = [r for r in self.rows if t >= r.start]
+        total = sum(banner_h if r.kind == "banner" else line_h for r in shown) + line_h
+        target = max(0.0, total - body.height())
+        self._scroll += (target - self._scroll) * 0.25
+        p.save()
+        p.setClipRect(body.adjusted(-4, -2, 4, 2))
+        y = body.top() - self._scroll
+        for row in shown:
+            rh = banner_h if row.kind == "banner" else line_h
+            if y + rh >= body.top() - rh:
+                self._draw_row(p, row, t, QRectF(body.left(), y, body.width(), rh), f, fb, banner_f, s, alpha)
+            y += rh
+        p.restore()
+
+        # scanlines + a slow refresh band over the glass
+        p.setOpacity(alpha)
+        p.setPen(QPen(QColor(0, 0, 0, 40), 1))
+        yy = screen.top() + head_h + 0.5
+        while yy < screen.bottom():
+            p.drawLine(QPointF(screen.left() + 1, yy), QPointF(screen.right() - 1, yy))
+            yy += 3
+        if self.fade_from is None:
+            band_y = screen.top() + (t * 0.32) % (screen.height() + 140) - 70
+            g = QLinearGradient(0, band_y - 70, 0, band_y)
+            g.setColorAt(0, with_alpha(GREEN, 0))
+            g.setColorAt(1, with_alpha(GREEN, 0.035))
+            p.save()
+            p.setClipRect(screen)
+            p.fillRect(QRectF(screen.left(), band_y - 70, screen.width(), 70), g)
+            p.restore()
+
+        # footer hint
+        p.setFont(mono(11 * s))
+        p.setOpacity(alpha * 0.85)
+        p.setPen(MUTED)
+        hint = "press any key to skip"
+        if self.sfx and self.sfx.available:
+            hint += " · m: " + ("sound off" if self.sfx.enabled else "sound on")
+        if self.muted_note and t - self.muted_note < 1200:
+            p.setPen(GREEN)
+            hint = "sound on" if self.sfx and self.sfx.enabled else "sound off (press m to turn it back on)"
+        p.drawText(QRectF(screen.left(), screen.bottom() - 22 * s, screen.width() - 14 * s, 18 * s),
+                   Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter, hint)
+
+    def _prompt(self, p: QPainter, x: float, r: QRectF, fb: QFont, f: QFont) -> float:
+        fm = QFontMetricsF(fb)
+        p.setFont(fb)
+        p.setPen(GREEN)
+        p.drawText(QPointF(x, r.top() + (r.height() + fm.ascent() - fm.descent()) / 2), PROMPT_USER)
+        x += fm.horizontalAdvance(PROMPT_USER)
+        p.setFont(f)
+        p.setPen(TEXT_2)
+        p.drawText(QPointF(x, r.top() + (r.height() + fm.ascent() - fm.descent()) / 2), PROMPT_PATH)
+        return x + QFontMetricsF(f).horizontalAdvance(PROMPT_PATH)
+
+    def _cursor(self, p: QPainter, x: float, r: QRectF, fm: QFontMetricsF, solid: bool) -> None:
+        if solid or (int(self.t) // 420) % 2 == 0:
+            p.fillRect(QRectF(x + 1, r.top() + r.height() * 0.18, fm.horizontalAdvance("M") * 0.95, r.height() * 0.64),
+                       with_alpha(GREEN, 0.9))
+
+    def _decode(self, text: str, k: float, seed: int) -> str:
+        """Scrambled glyphs that settle into `text` from left to right as k goes 0 -> 1."""
+        if k >= 1:
+            return text
+        rnd = random.Random(seed * 131 + int(self.t // 40))
+        n = int(len(text) * k)
+        return text[:n] + "".join(" " if c == " " else rnd.choice(GLYPHS) for c in text[n:])
+
+    def _draw_row(self, p: QPainter, row: Row, t: float, r: QRectF, f: QFont, fb: QFont, bf: QFont,
+                  s: float, alpha: float) -> None:
+        fm = QFontMetricsF(f)
+        base = r.top() + (r.height() + fm.ascent() - fm.descent()) / 2
+        p.setOpacity(alpha)
+        if row.kind == "cmd":
+            x = self._prompt(p, r.left(), r, fb, f)
+            n = sum(1 for k in row.keys if k <= t)
+            typed = row.text[:n]
+            p.setFont(f)
+            p.setPen(TEXT)
+            p.drawText(QPointF(x, base), typed)
+            if t < row.end:
+                self._cursor(p, x + fm.horizontalAdvance(typed), r, fm, solid=0 < n < len(row.text))
+        elif row.kind == "banner":
+            k = ease_out((t - row.start) / 160)
+            p.setFont(bf)
+            bm = QFontMetricsF(bf)
+            text = self._decode(row.text, min(1.0, (t - row.start) / 90), row.start)
+            bx = r.left() + 2 * s
+            by = r.top() + (r.height() + bm.ascent() - bm.descent()) / 2
+            if k < 1:                                    # RGB split as each row lands
+                off = 3 * s * (1 - k)
+                p.setOpacity(alpha * 0.5 * (1 - k))
                 p.setPen(QColor("#ff3b6b"))
-                p.drawText(QPointF(bx - off, by), shown)
+                p.drawText(QPointF(bx - off, by), text)
                 p.setPen(QColor("#3bd9ff"))
-                p.drawText(QPointF(bx + off, by), shown)
-            for spread, a in ((3.0, 0.10), (1.5, 0.16)):           # cheap glow
-                p.setOpacity(alpha * a)
-                p.setPen(GREEN)
-                for dx, dy in ((-spread, 0), (spread, 0), (0, -spread), (0, spread)):
-                    p.drawText(QPointF(bx + dx * s, by + dy * s), shown)
+                p.drawText(QPointF(bx + off, by), text)
+            p.setOpacity(alpha * 0.18)
+            p.setPen(GREEN)
+            for dx, dy in ((-1.5, 0), (1.5, 0), (0, -1.5), (0, 1.5)):   # cheap glow
+                p.drawText(QPointF(bx + dx * s, by + dy * s), text)
             p.setOpacity(alpha)
-            grad = QLinearGradient(bx, by - fm.ascent(), bx, by)
+            grad = QLinearGradient(bx, by - bm.ascent(), bx, by)
             grad.setColorAt(0, GREEN_HI)
             grad.setColorAt(1, GREEN)
             p.setPen(QPen(grad, 1))
-            p.drawText(QPointF(bx, by), shown)
-            if len(shown) < len(word) or (t // 450) % 2 == 0 and self.fade_from is None:
-                cw = fm.horizontalAdvance(shown)
-                p.fillRect(QRectF(bx + cw + 4 * s, by - fm.ascent() * 0.82, 12 * s, fm.ascent() * 0.86),
-                           with_alpha(GREEN, 0.9))
-        y += fm.height() + 2 * s
-
-        sub = mono(13 * s)
-        p.setFont(sub)
-        p.setOpacity(alpha * ease_out((t - 300) / 400))
-        p.setPen(MUTED)
-        text = "// built and maintained by synterra"
-        p.drawText(QRectF(x0, y, col_w, 20 * s), Qt.AlignmentFlag.AlignHCenter, text)
-        return y + 20 * s
-
-    def _draw_terminal(self, p: QPainter, t: int, x0: float, y: float, col_w: float, s: float, alpha: float) -> float:
-        line_h = 25 * s
-        pad = 18 * s
-        head_h = 30 * s
-        box_h = head_h + pad + len(self.lines) * line_h + pad * 0.6
-        appear = ease_out((t - 200) / 380)
-        p.setOpacity(alpha * appear)
-        box = QRectF(x0, y + 8 * s * (1 - appear), col_w, box_h)
-
-        # frame: clipped corners like the dashboard tiles
-        cut = 12 * s
-        path = QPainterPath()
-        path.moveTo(box.left(), box.top())
-        path.lineTo(box.right() - cut, box.top())
-        path.lineTo(box.right(), box.top() + cut)
-        path.lineTo(box.right(), box.bottom())
-        path.lineTo(box.left() + cut, box.bottom())
-        path.lineTo(box.left(), box.bottom() - cut)
-        path.closeSubpath()
-        p.fillPath(path, with_alpha(BG_1, 0.92))
-        p.setPen(QPen(LINE_2, 1))
-        p.drawPath(path)
-        p.setPen(QPen(with_alpha(LINE, 1), 1))
-        p.drawLine(QPointF(box.left(), box.top() + head_h), QPointF(box.right(), box.top() + head_h))
-
-        f_head = mono(12 * s)
-        p.setFont(f_head)
-        p.setPen(MUTED)
-        p.drawText(QRectF(box.left() + pad, box.top(), box.width() - 2 * pad, head_h),
-                   Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "prism@synterra:~$ ./boot --secure")
-        live = self.fade_from is None and t < self.t_fade
-        p.setPen(GREEN if live else GREEN_DIM)
-        p.drawText(QRectF(box.left() + pad, box.top(), box.width() - 2 * pad, head_h),
-                   Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, "● live" if live else "● ready")
-
-        f = mono(14 * s)
-        fb = mono(14 * s, bold=True)
-        fm = QFontMetricsF(f)
-        label_w = fm.horizontalAdvance("containers") + 22 * s
-        ly = box.top() + head_h + pad * 0.7
-        for i, (label, detail, status) in enumerate(self.lines):
-            start = T_LINES + i * (LINE_TYPE + LINE_GAP)
-            if t < start:
-                break
-            prog = min(1.0, (t - start) / LINE_TYPE)
-            row = QRectF(box.left() + pad, ly, box.width() - 2 * pad, line_h)
-            p.setOpacity(alpha * appear)
+            p.drawText(QPointF(bx, by), text)
+        elif row.kind == "text":
+            k = min(1.0, (t - row.start) / DECODE)
+            p.setFont(fb if row.status == "ready" else f)
+            p.setPen(GREEN if row.status == "ready" else MUTED)
+            text = self._decode(row.text, k, row.start)
+            if row.status == "ready":
+                text = "✓ " + text
+            p.drawText(QPointF(r.left(), base), text)
+            if row.status == "ready" and self.fade_from is None:
+                self._cursor(p, r.left() + QFontMetricsF(fb).horizontalAdvance(text) + 6 * s, r, fm, solid=False)
+        elif row.kind == "log":
+            k = min(1.0, (t - row.start) / DECODE)
+            st = (t - row.start - DECODE - STATUS_AFTER) / 140
+            tag = {"ok": "[  OK  ]", "--": "[  --  ]"}.get(row.status, "[ WARN ]")
+            color = {"ok": GREEN, "--": MUTED}.get(row.status, WARN)
             p.setFont(fb)
-            p.setPen(GREEN)
-            p.drawText(row, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, ">")
-            full = label.ljust(11) + detail
-            n = int(len(full) * prog)
-            lab = full[:min(n, len(label))]
-            det = full[len(label.ljust(11)):n] if n > len(label.ljust(11)) else ""
-            tx = row.left() + fm.horizontalAdvance("> ")
-            p.setFont(f)
-            p.setPen(GREEN_DIM)
-            p.drawText(QRectF(tx, ly, label_w, line_h), Qt.AlignmentFlag.AlignVCenter, lab)
-            p.setPen(TEXT_2)
-            p.drawText(QRectF(tx + label_w, ly, row.width() - label_w - 80 * s, line_h),
-                       Qt.AlignmentFlag.AlignVCenter, det)
-            if prog < 1:                                     # typing cursor
-                cx = tx + (fm.horizontalAdvance(lab) if n <= len(label)
-                           else label_w + fm.horizontalAdvance(det))
-                p.fillRect(QRectF(cx + 1, ly + line_h * 0.22, 8 * s, line_h * 0.56), with_alpha(GREEN, 0.9))
-            st = (t - start - LINE_TYPE - T_STATUS) / 160
+            tw = QFontMetricsF(fb).horizontalAdvance(tag + " ")
             if st > 0:
-                k = ease_out(st)
-                tag = {"ok": "[  ok  ]", "--": "[  --  ]"}.get(status, "[ warn ]")
-                color = {"ok": GREEN, "--": MUTED}.get(status, WARN)
-                p.setFont(fb)
-                p.setOpacity(alpha * appear * k)
-                tr = QRectF(row.left(), ly, row.width() + (1 - k) * 14 * s, line_h)
-                if st < 1 and status == "ok":                     # flash as it lands
-                    p.setPen(with_alpha(GREEN_HI, 1 - k))
+                ks = ease_out(st)
+                if st < 1 and row.status == "ok":            # flash as it lands
+                    p.setOpacity(alpha * (1 - ks))
+                    p.setPen(GREEN_HI)
                     for d in (-1.2, 1.2):
-                        p.drawText(tr.translated(d * s, 0), Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, tag)
+                        p.drawText(QPointF(r.left() + d * s, base), tag)
+                p.setOpacity(alpha * ks)
                 p.setPen(color)
-                p.drawText(tr, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight, tag)
-            ly += line_h
-        return box.bottom()
-
-    def _draw_bar(self, p: QPainter, t: int, x0: float, y: float, col_w: float, s: float, alpha: float) -> None:
-        # Creeps forward while lines boot, then fills.
-        booted = min(1.0, max(0.0, (t - T_LINES) / max(1, self.t_bar - T_LINES)))
-        fill = 0.62 * ease_out(booted) + 0.38 * ease_in_out((t - self.t_bar) / BAR_TIME)
-        fill = max(0.0, min(1.0, fill))
-        appear = ease_out((t - 250) / 400)
-        p.setOpacity(alpha * appear)
-        f = mono(12 * s)
-        p.setFont(f)
-        ready = t >= self.t_bar + BAR_TIME
-        label = "ready. opening prism" if ready else (
-            "loading modules" if t < self.t_bar else "launching interface")
-        dots = "" if ready else "." * (1 + (t // 220) % 3)
-        p.setPen(GREEN if ready else MUTED)
-        p.drawText(QRectF(x0, y, col_w, 18 * s), Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-                   label + dots)
-        p.setPen(GREEN if ready else TEXT_2)
-        p.drawText(QRectF(x0, y, col_w, 18 * s), Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
-                   f"{int(fill * 100):3d}%")
-        by = y + 26 * s
-        bh = max(2.0, 3 * s)
-        p.fillRect(QRectF(x0, by, col_w, bh), with_alpha(LINE, 1))
-        fw = col_w * fill
-        if fw > 0:
-            g = QLinearGradient(x0, 0, x0 + fw, 0)
-            g.setColorAt(0, GREEN_DIM)
-            g.setColorAt(1, GREEN_HI)
-            p.fillRect(QRectF(x0, by, fw, bh), g)
-            glow = QRadialGradient(QPointF(x0 + fw, by + bh / 2), 26 * s)
-            glow.setColorAt(0, with_alpha(GREEN_HI, 0.55))
-            glow.setColorAt(1, with_alpha(GREEN_HI, 0))
-            p.fillRect(QRectF(x0 + fw - 26 * s, by - 24 * s, 52 * s, 48 * s + bh), glow)
-        # segment ticks
-        p.setPen(QPen(with_alpha(BG, 0.9), max(1.0, s)))
-        for i in range(1, 40):
-            tx = x0 + col_w * i / 40
-            p.drawLine(QPointF(tx, by), QPointF(tx, by + bh))
+                p.drawText(QPointF(r.left(), base), tag)
+            else:
+                p.setPen(MUTED)
+                spin = "|/-\\"[int(t // 70) % 4]
+                p.drawText(QPointF(r.left(), base), f"[  {spin}   ]")
+            p.setOpacity(alpha)
+            p.setFont(f)
+            label_w = fm.horizontalAdvance("containers  ")
+            p.setPen(GREEN_DIM)
+            p.drawText(QPointF(r.left() + tw, base), self._decode(row.label, k, row.start + 1))
+            p.setPen(TEXT_2)
+            p.drawText(QPointF(r.left() + tw + label_w, base), self._decode(row.text, k, row.start + 2))
+        elif row.kind == "bar":
+            fill = ease_in_out((t - row.start) / max(1, row.end - row.start))
+            cells = 36
+            done = int(cells * fill)
+            p.setFont(f)
+            x = r.left()
+            p.setPen(TEXT_2)
+            p.drawText(QPointF(x, base), "launching ")
+            x += fm.horizontalAdvance("launching ")
+            p.setPen(LINE_2)
+            p.drawText(QPointF(x, base), "[")
+            x += fm.horizontalAdvance("[")
+            p.setPen(GREEN)
+            p.drawText(QPointF(x, base), "█" * done)
+            p.setPen(LINE_2)
+            p.drawText(QPointF(x + fm.horizontalAdvance("█" * done), base), "░" * (cells - done))
+            x += fm.horizontalAdvance("█" * cells)
+            p.drawText(QPointF(x, base), "]")
+            p.setPen(GREEN if fill >= 1 else TEXT)
+            p.drawText(QPointF(x + fm.horizontalAdvance("] "), base), f"{int(fill * 100):3d}%")

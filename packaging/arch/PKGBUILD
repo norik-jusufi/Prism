@@ -25,7 +25,8 @@ depends=(
   'hicolor-icon-theme'
 )
 makedepends=('git')
-optdepends=('xdg-utils: make PRISM the default browser with xdg-settings')
+optdepends=('xdg-utils: make PRISM the default browser with xdg-settings'
+            'qt6-multimedia: sounds in the start-up intro')
 install=prism.install
 _repo=$(realpath "${startdir:-.}/../..")
 source=("prism::git+file://${_repo}")

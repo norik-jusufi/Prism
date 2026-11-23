@@ -55,6 +55,35 @@ RT = QWebEngineUrlRequestInfo.ResourceType
 MAIN_FRAME = RT.ResourceTypeMainFrame
 SCRIPT = RT.ResourceTypeScript
 
+# Local files. A page opened from disk gets file access back (see
+# PrismWindow.apply_page_rules), or a saved page would show without its
+# images and styles. But Qt's file access is all or nothing: on its own it
+# would let any HTML file read every other file you have. So here a local page
+# may only load what a page is made of (styles, scripts, images, fonts, media,
+# frames of other pages), only from its own folder or below, and never read a
+# file from script (fetch / XHR), which is how a page would steal one.
+# It can't send anything anywhere either: LocalContentCanAccessRemoteUrls is off.
+UI_DIR = (ROOT / "ui").resolve()
+LOCAL_PARTS = {RT.ResourceTypeStylesheet, SCRIPT, RT.ResourceTypeImage, RT.ResourceTypeFontResource,
+               RT.ResourceTypeMedia, RT.ResourceTypeFavicon, RT.ResourceTypeSubFrame}
+FRAME_FILES = {".html", ".htm", ".xhtml", ".shtml", ".svg", ".mhtml", ".mht"}
+
+
+def local_file_allowed(url: QUrl, first_party: QUrl, rtype) -> bool:
+    """May the page at `first_party` load the local file `url` (not as the main frame)?"""
+    if not first_party.isLocalFile():
+        return False                                 # websites never read your files
+    try:
+        page = Path(first_party.toLocalFile()).resolve()
+        target = Path(url.toLocalFile()).resolve()
+    except (OSError, ValueError):
+        return False
+    if page.parent == UI_DIR or target == page:      # PRISM's own pages; a file reading itself (PDF viewer)
+        return True
+    if rtype not in LOCAL_PARTS or not target.is_relative_to(page.parent):
+        return False
+    return rtype != RT.ResourceTypeSubFrame or target.suffix.lower() in FRAME_FILES
+
 
 def _parse_line(line: str) -> tuple[str | None, bool]:
     """Return (domain, is_allow_rule) for one blocklist line."""
@@ -211,6 +240,11 @@ class PrivacyEngine:
                 is_search = ((host.endswith("libresearch.ca") and url.path().startswith("/search"))
                              or (host == "duckduckgo.com" and "q=" in url.query()))
                 self.stats.page(host, url.scheme() == "https", is_search)
+
+        if url.scheme() == "file":
+            if not is_main and not local_file_allowed(url, info.firstPartyUrl(), rtype):
+                info.block(True)
+            return
 
         info.setHttpHeader(b"DNT", b"1")
         info.setHttpHeader(b"Sec-GPC", b"1")

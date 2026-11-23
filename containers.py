@@ -117,7 +117,9 @@ def build_content_profile(app: QApplication, engine: PrivacyEngine, container: C
     for attr, value in [
         (A.JavascriptCanOpenWindows, False),   # no scripted pop-ups / pop-unders
         (A.WebRTCPublicInterfacesOnly, True),  # don't leak LAN IPs over WebRTC
-        (A.PluginsEnabled, False),
+        # Chromium's PDF viewer is the only plugin left in Qt 6. Off, PDFs download
+        # instead of opening.  (Sandbox: no PDF viewer.)
+        (A.PluginsEnabled, not sandbox),
         # WebGL crashes Qt WebEngine 6.12 (e.g. GitHub's 3D globe takes the whole
         # app down) and is a major fingerprinting surface. Off.
         (A.WebGLEnabled, False),

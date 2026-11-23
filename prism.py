@@ -113,6 +113,7 @@ from PyQt6.QtWidgets import QApplication  # noqa: E402
 import intro  # noqa: E402
 from adblock import Blocklist, PrivacyEngine  # noqa: E402
 from edition import DISABLED, EDITION  # noqa: E402
+EDITION_NAME = "full" if EDITION == "employee" else EDITION   # what people see; "employee" is the settings value
 from urls import ICON  # noqa: E402
 from version import VERSION  # noqa: E402
 from window import PrismWindow  # noqa: E402
@@ -158,10 +159,15 @@ def main() -> int:
     listener = instance.Listener(app)
     listener.opened.connect(win.open_external)
     win.show()
-    if intro.enabled(SETTINGS):        # terminal boot animation, fades into the browser
-        intro.BootIntro(win, intro.boot_lines(win, blocklist, SETTINGS, DOH_PROXY, VERSION, EDITION)).start()
+    # Terminal boot animation that fades into the browser. Not when PRISM was
+    # started to open a link or a file: then the page is what's wanted, now.
+    if intro.enabled(SETTINGS) and not LAUNCH_URLS:
+        from sounds import Sfx
+        sfx = Sfx(data_dir() / "sounds", enabled=bool(SETTINGS.data.get("introSound", True)), parent=win)
+        intro.BootIntro(win, intro.boot_lines(win, blocklist, SETTINGS, DOH_PROXY, VERSION, EDITION_NAME),
+                        version=VERSION, settings=SETTINGS, sfx=sfx).start()
     eng = win.updates.engine
-    print(f"[prism] PRISM {VERSION}, {EDITION} edition"
+    print(f"[prism] PRISM {VERSION}, {EDITION_NAME} edition"
           + (f" (without {', '.join(sorted(DISABLED))})" if DISABLED else "")
           + f"; Qt WebEngine {eng['qt']}, Chromium {eng['chromium']}"
           + (f", security patches to {eng['patch']}" if eng["patch"] else ""))

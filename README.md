@@ -122,7 +122,15 @@ The dashboard footer shows which engine is in use.
 
 ## Boot intro
 
-When PRISM opens, a terminal boots it in over the window for about three seconds: the logo, then a live boot log (version, Chromium, blocklist sizes, DNS, privacy, containers) with `[ ok ]` checks and a progress bar, then it fades into the browser, which has been loading underneath the whole time. Click or press any key to skip it. Turn it off with `"intro": false` in `settings.json`, or `PRISM_NO_INTRO=1`. Drawn by `intro.py` with plain Qt painting, so it costs nothing once it's gone.
+When PRISM opens, a terminal boots it in over the window for about four seconds. The screen powers on like a CRT, `./prism --boot --secure` is typed in key by key, the PRISM banner prints, the live boot log follows (version, Chromium, blocklist sizes, DNS, privacy, containers) with `[ OK ]` checks, and `launch --interface` fills a progress bar before the terminal fades into the browser, which has been loading underneath the whole time. Key clicks, data chirps and a "ready" chime play along: they're synthesized by `sounds.py` the first time (no audio files are shipped) and played with Qt Multimedia.
+
+Click or press any key to skip it, or press **M** to mute it (remembered). It doesn't play when PRISM is started to open a link or a file. Turn it off with `"intro": false` in `settings.json`, or `PRISM_NO_INTRO=1`; only the sound with `"introSound": false`. Drawn by `intro.py` with plain Qt painting, so it costs nothing once it's gone.
+
+## Downloads and files
+
+When a download starts, PRISM asks where to save it in its own popup: rename the file, pick a folder (your default folder, Downloads, Desktop, Documents or one you used recently) or **Browse…** for any folder with the usual system picker. A name that's already taken gets `(1)`, `(2)`, ... instead of overwriting. At the bottom of the popup, **Next time** switches to the standard system Save As dialog, or to saving straight into the default folder without asking. The same choice, the default folder and this session's downloads (progress, Open, Show in folder, Cancel) are in the panel's Downloads section (`Ctrl J`). Sandbox tabs can't download.
+
+PRISM opens PDFs in its built-in viewer, and shows HTML pages (also saved `.mhtml`), images, SVG, text, JSON and XML files. Open them with `Ctrl O`, **Open file…** in the Downloads section, or from Windows: the installer adds PRISM to **Open with** for these files, and in Settings → Apps → Default apps → PRISM you can make it the default for PDFs too.
 
 ## Dashboard
 
@@ -185,7 +193,7 @@ Statistics are kept across restarts in `stats.json` (saved every 30 seconds and 
 | WebRTC | Shows only public interfaces, so your LAN IP does not leak. |
 | WebGL | Disabled: blocks GPU fingerprinting and avoids a Qt 6.12 crash on WebGL pages (e.g. github.com). |
 | Fingerprinting | Sends a generic Chrome user-agent (with the Chromium version PRISM really runs) instead of the unique "QtWebEngine" one. No pop-ups, pings, DNS prefetch or background networking. |
-| Local files | An HTML file opened from disk can't read other files on your computer. Only PRISM's own pages (new tab, warning page) may load local files. |
+| Local files | An HTML file opened from disk loads its own images, styles, scripts and fonts from its folder (or below it), and nothing else: it can't read other files from script (fetch/XHR blocked for files), can't load files outside its folder, and can't reach the internet. Sandbox tabs never get file access. |
 
 ## Shortcuts
 
@@ -197,6 +205,8 @@ Statistics are kept across restarts in `stats.json` (saved every 30 seconds and 
 | `Ctrl Tab`, `Ctrl 1-9` | Switch tabs |
 | `Alt ←/→`, `Ctrl R` | Back / forward / reload |
 | `Ctrl F` | Find in page |
+| `Ctrl O` | Open a file (PDF, HTML, image, text) |
+| `Ctrl J` | Downloads |
 | `Ctrl + / - / 0` | Zoom |
 | `F12` / `Ctrl Shift I` | DevTools (docked) |
 | `Ctrl B` | PRISM panel |
@@ -230,6 +240,8 @@ theme.py               Qt-native styling, icons, Windows title bar
 edition.py             full / partner edition (deployment.json)
 updates.py             update and Chromium security check
 intro.py               boot intro (terminal animation at start)
+sounds.py              intro sound effects, synthesized into WAVs on first use
+downloads.py           where downloads go: the save popup, the session's download list
 version.py             PRISM version (bump for every release)
 panel.py               backend for the PRISM panel (all panel actions and data)
 designai.py            AI design review: page measurements, screenshot, Claude API call
@@ -259,7 +271,8 @@ It can use hosts format, `||domain^`, or plain domains. `@@||domain^` allows a d
 Browsing data (history, cookies, cache, site storage) is never written to disk.
 Only what you set up yourself, plus dashboard counters, is saved in `%APPDATA%\Synterra\PRISM` (on Linux `~/.local/share/Synterra/PRISM`, readable only by you):
 
-- `settings.json`: permission defaults and site exceptions, per-site script rules, your block list, encrypted DNS and terminal settings.
+- `settings.json`: permission defaults and site exceptions, per-site script rules, your block list, encrypted DNS, terminal and download settings (save mode, default and recent folders).
+- `sounds/`: the intro's sound effects, generated on first start.
 - `bookmarks.json`: dev bookmarks.
 - `vault.prism`: the password vault, encrypted.
 - `stats.json`: dashboard counters and top blocked domains (no visited sites).

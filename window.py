@@ -9,6 +9,7 @@ after prism.py has set the Chromium flags.
 from __future__ import annotations
 
 import json
+import os
 import time
 from collections import deque
 from urllib.parse import urlencode
@@ -18,13 +19,14 @@ from PyQt6.QtGui import QCursor, QIcon, QKeySequence, QShortcut
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile, QWebEngineScript, QWebEngineSettings
 from PyQt6.QtWebEngineWidgets import QWebEngineView
-from PyQt6.QtWidgets import QApplication, QMainWindow, QMenu, QSplitter, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QFileDialog, QMainWindow, QMenu, QSplitter, QVBoxLayout, QWidget
 
 from adblock import Blocklist, PrivacyEngine
 from apitester import ApiTester
 from bridge import Bridge
 from containers import CONTAINER_PRESETS, SANDBOX_COLOR, TEMP_COLOR, USER_AGENT, Container, ContainersMixin
 from devtools import DevDock, DevToolsMixin
+from downloads import Downloads
 from edition import EDITION, enabled
 from siteintel import HeaderFetcher, site_of, trust_score
 from stats import SAVE_EVERY as STATS_SAVE_EVERY
@@ -79,6 +81,7 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
         from designai import DesignAssistant
         self.design = DesignAssistant(self)
         self.api = ApiTester(self)
+        self.downloads = Downloads(self)
         self.headers = HeaderFetcher(USER_AGENT, self)
         self.headers.done.connect(self.on_headers)
         self.updates = UpdateChecker(self)
@@ -136,6 +139,7 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
         self.hsplit.addWidget(self.panel_view)
         self.panel_view.hide()
         self.design.changed.connect(lambda: self.panel.push_section("design"))
+        self.downloads.changed.connect(lambda: self.panel.push_section("downloads", force=False))
 
         central = QWidget()
         lay = QVBoxLayout(central)
@@ -202,6 +206,8 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
         sc("Ctrl+Shift+A", lambda: self.toggle_panel("api", force=True, focus=True))
         sc("Ctrl+Shift+S", lambda: self.toggle_panel("site", force=True))
         sc("Ctrl+Shift+D", lambda: self.toggle_panel("design", force=True))
+        sc("Ctrl+J", lambda: self.toggle_panel("downloads"))
+        sc("Ctrl+O", self.open_files)
         sc("F11", self.toggle_fullscreen)
         sc(["Ctrl+=", "Ctrl++"], lambda: self.zoom(+0.1))
         sc("Ctrl+-", lambda: self.zoom(-0.1))
@@ -527,9 +533,13 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
         s = tab.page.settings()
         A = QWebEngineSettings.WebAttribute
         local = is_local_ui(url)
-        # The new-tab and warning pages load their CSS / images from ./ui;
-        # any other file:// page must not read local files.
-        s.setAttribute(A.LocalContentCanAccessFileUrls, local)
+        # The new-tab and warning pages load their CSS / images from ./ui. A file
+        # opened from disk gets file access too, so a saved page shows with its
+        # images and styles; the request filter keeps it to the page's own
+        # folder and blocks reading files from script (adblock.local_file_allowed).
+        # Sandbox tabs: never.
+        own_file = url.isLocalFile() and tab.container.kind != "sandbox"
+        s.setAttribute(A.LocalContentCanAccessFileUrls, local or own_file)
         if local or url.scheme() in ("data", "about", "qrc", "chrome", "devtools"):
             js = True
         elif tab.container.kind == "sandbox":
@@ -983,13 +993,21 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
             download.cancel()
             self.bridge.toast.emit("Downloads are blocked in the sandbox")
             return
-        download.accept()
-        name = download.downloadFileName()
-        self.bridge.toast.emit(f"downloading {name}")
-        download.isFinishedChanged.connect(
-            lambda d=download, n=name: self.bridge.toast.emit(
-                f"saved {n} to {d.downloadDirectory()}" if d.state().name == "DownloadCompleted"
-                else f"download failed: {n}"))
+        self.downloads.handle(download)
+
+    # local files
+    OPEN_FILTER = ("Documents and pages (*.pdf *.html *.htm *.xhtml *.shtml *.mhtml *.mht *.svg *.txt *.md *.json "
+                   "*.xml *.log);;Images (*.png *.jpg *.jpeg *.gif *.webp *.avif *.bmp *.ico *.svg);;"
+                   "Video and audio (*.mp4 *.webm *.mp3 *.ogg *.wav);;All files (*)")
+
+    def open_files(self):
+        """Ctrl+O: open files from disk, each in a new tab."""
+        paths, _ = QFileDialog.getOpenFileNames(self, "Open in PRISM", self.settings.data.get("openDir", ""),
+                                                self.OPEN_FILTER)
+        if paths:
+            self.settings.data["openDir"] = os.path.dirname(paths[0])
+            self.settings.save()
+            self.open_external([QUrl.fromLocalFile(p).toString() for p in paths])
 
     def showEvent(self, event):
         super().showEvent(event)

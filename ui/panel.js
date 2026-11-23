@@ -21,7 +21,7 @@
   let INIT = { permissionTypes: {}, dnsProviders: {}, securityHeaders: {} };
   const TITLES = {
     site: "Site report", network: "Network", source: "Source explorer", design: "Design review", api: "API tester", terminal: "Terminal",
-    memory: "Tab memory", containers: "Containers", permissions: "Permissions", vault: "Password vault", bookmarks: "Dev bookmarks",
+    downloads: "Downloads", memory: "Tab memory", containers: "Containers", permissions: "Permissions", vault: "Password vault", bookmarks: "Dev bookmarks",
   };
   const call = (action, payload) => prism && prism.call(action, JSON.stringify(payload || {}));
 
@@ -851,6 +851,50 @@ Interactive full-screen programs (vim, less, htop) are not supported.
   ACT.ctSandbox = () => { call("ct.sandbox", { url: $("#sb-url").value }); $("#sb-url").value = ""; };
 
   /* ======================================================== PERMISSIONS */
+  /* ========================================================== DOWNLOADS */
+  V.downloads = {
+    head() {
+      const n = D.downloads ? D.downloads.items.filter((i) => i.state === "progress").length : 0;
+      setHead(n ? `${n} in progress` : "this session",
+        `<button class="btn sm" data-act="dlOpenFile" title="Open a PDF, HTML page or other file in PRISM (Ctrl+O)">Open file…</button>`);
+    },
+    update(d) {
+      if (d.error) { view("downloads").innerHTML = `<div class="empty">${esc(d.error)}</div>`; return; }
+      V.downloads.head();
+      const modes = Object.entries(d.modes);
+      let h = `<h2>When a download starts</h2>
+        <div class="seg">${modes.map(([k, l]) => `<button data-act="dlMode" data-v="${k}" class="${d.mode === k ? "on" : ""}">${esc(l)}</button>`).join("")}</div>
+        <p class="note">${d.mode === "ask" ? "PRISM asks where to save each file: rename it, pick a folder, or browse for any folder."
+          : d.mode === "system" ? "Each download opens your system's Save As dialog."
+          : "Files go straight into the default folder, no questions asked."}</p>
+        <div class="box row"><span class="grow" style="overflow-wrap:anywhere"><span class="muted" style="font-size:11px">Default folder</span><br>${esc(d.dir)}</span>
+          <button class="btn sm" data-act="dlOpenFolder">Open</button><button class="btn sm" data-act="dlFolder">Change…</button></div>`;
+      const done = d.items.some((i) => i.state !== "progress");
+      h += `<h2><span class="grow">Files <small>${d.items.length}</small></span>${done ? `<button class="btn sm" data-act="dlClear">Clear finished</button>` : ""}</h2>`;
+      h += d.items.length ? d.items.map((i) => {
+        const pct = i.total > 0 ? Math.min(100, (i.received / i.total) * 100) : (i.state === "done" ? 100 : 0);
+        const status = i.state === "progress" ? `${kb(i.received)}${i.total > 0 ? " of " + kb(i.total) : ""}`
+          : i.state === "done" ? `${kb(i.received)} · ${esc(i.source)}` : i.state;
+        const acts = i.state === "progress" ? `<button class="btn sm" data-act="dlCancel" data-id="${i.id}">Cancel</button>`
+          : i.state === "done" ? `<button class="btn sm" data-act="dlOpen" data-id="${i.id}">Open</button>
+              <button class="btn sm" data-act="dlReveal" data-id="${i.id}">Show in folder</button>` : "";
+        return `<div class="memrow dlrow"><span class="dot" style="background:var(${i.state === "done" ? "--green" : i.state === "progress" ? "--green-dim" : "--danger"})"></span>
+          <span class="t" title="${esc(i.path)}">${esc(i.name)}</span><span class="acts">${acts}</span>
+          <div class="meta"><span class="track"><span class="fill ${i.state === "done" ? "done" : i.state === "progress" ? "" : "bad"}" style="display:block;width:${pct}%"></span></span>
+            <span>${status}</span></div></div>`;
+      }).join("") : `<div class="empty"><b>No downloads yet</b>Downloads from this session show up here. PDFs, pages and images open right in PRISM; use Open file… for files on your computer.</div>`;
+      view("downloads").innerHTML = h;
+    },
+  };
+  ACT.dlMode = (b) => call("dl.mode", { mode: b.dataset.v });
+  ACT.dlFolder = () => call("dl.folder");
+  ACT.dlOpenFolder = () => call("dl.openFolder");
+  ACT.dlOpenFile = () => call("dl.openFile");
+  ACT.dlOpen = (b) => call("dl.open", { id: +b.dataset.id });
+  ACT.dlReveal = (b) => call("dl.reveal", { id: +b.dataset.id });
+  ACT.dlCancel = (b) => call("dl.cancel", { id: +b.dataset.id });
+  ACT.dlClear = () => call("dl.clear");
+
   V.permissions = {
     head() { setHead(D.permissions ? `${fmt(D.permissions.denied)} requests denied in total` : "", ""); },
     update(d) {
@@ -1203,6 +1247,7 @@ Interactive full-screen programs (vim, less, htop) are not supported.
     api(d) { onApiResult(d); },
     term(d) { onTerm(d); },
     termState(d) { onTermState(d); },
+    downloads(d) { D.downloads = d; if (section === "downloads") V.downloads.update(d); },
     memory(d) { D.memory = d; if (section === "memory") { V.memory.head(); V.memory.update(d); } },
     containers(d) { D.containers = d; if (section === "containers" && V.containers.ready) V.containers.update(d); },
     permissions(d) {

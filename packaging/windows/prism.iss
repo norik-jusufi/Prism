@@ -126,7 +126,8 @@ Name: "{autodesktop}\PRISM"; Filename: "{app}\PRISM.exe"; Tasks: desktopicon
 
 [Registry]
 ; Registers PRISM as a web browser, so Windows lists it under Settings > Apps >
-; Default apps (and in "Open with" for .html files). It does not make PRISM the
+; Default apps (where it can also be picked for PDFs) and in "Open with" for pages,
+; PDFs, images and text files. It does not make PRISM the
 ; default: only the user can, in Settings. Links then arrive as PRISM.exe "<url>"
 ; (see instance.py). HKA = HKCU for "for me only", HKLM for "for all users".
 Root: HKA; Subkey: "Software\Classes\PRISMHTML"; ValueType: string; ValueName: ""; ValueData: "PRISM HTML Document"; Flags: uninsdeletekey
@@ -137,6 +138,20 @@ Root: HKA; Subkey: "Software\Classes\PRISMHTML\Application"; ValueType: string; 
 Root: HKA; Subkey: "Software\Classes\PRISMHTML\Application"; ValueType: string; ValueName: "AppUserModelId"; ValueData: "Synterra.Prism"
 Root: HKA; Subkey: "Software\Classes\PRISMHTML\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: """{app}\PRISM.exe"",0"
 Root: HKA; Subkey: "Software\Classes\PRISMHTML\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\PRISM.exe"" ""%1"""
+
+; PDFs, and other files PRISM can show (images, text, SVG, XML).
+Root: HKA; Subkey: "Software\Classes\PRISMPDF"; ValueType: string; ValueName: ""; ValueData: "PRISM PDF Document"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\PRISMPDF"; ValueType: string; ValueName: "FriendlyTypeName"; ValueData: "PRISM PDF Document"
+Root: HKA; Subkey: "Software\Classes\PRISMPDF\Application"; ValueType: string; ValueName: "ApplicationName"; ValueData: "PRISM"
+Root: HKA; Subkey: "Software\Classes\PRISMPDF\Application"; ValueType: string; ValueName: "ApplicationCompany"; ValueData: "Synterra"
+Root: HKA; Subkey: "Software\Classes\PRISMPDF\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: """{app}\PRISM.exe"",0"
+Root: HKA; Subkey: "Software\Classes\PRISMPDF\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\PRISM.exe"" ""%1"""
+Root: HKA; Subkey: "Software\Classes\PRISMFILE"; ValueType: string; ValueName: ""; ValueData: "PRISM Document"; Flags: uninsdeletekey
+Root: HKA; Subkey: "Software\Classes\PRISMFILE"; ValueType: string; ValueName: "FriendlyTypeName"; ValueData: "PRISM Document"
+Root: HKA; Subkey: "Software\Classes\PRISMFILE\Application"; ValueType: string; ValueName: "ApplicationName"; ValueData: "PRISM"
+Root: HKA; Subkey: "Software\Classes\PRISMFILE\Application"; ValueType: string; ValueName: "ApplicationCompany"; ValueData: "Synterra"
+Root: HKA; Subkey: "Software\Classes\PRISMFILE\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: """{app}\PRISM.exe"",0"
+Root: HKA; Subkey: "Software\Classes\PRISMFILE\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\PRISM.exe"" ""%1"""
 
 Root: HKA; Subkey: "Software\Clients\StartMenuInternet\PRISM"; ValueType: string; ValueName: ""; ValueData: "PRISM"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Clients\StartMenuInternet\PRISM\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: """{app}\PRISM.exe"",0"
@@ -151,9 +166,34 @@ Root: HKA; Subkey: "Software\Clients\StartMenuInternet\PRISM\Capabilities\FileAs
 Root: HKA; Subkey: "Software\Clients\StartMenuInternet\PRISM\Capabilities\FileAssociations"; ValueType: string; ValueName: ".html"; ValueData: "PRISMHTML"
 Root: HKA; Subkey: "Software\Clients\StartMenuInternet\PRISM\Capabilities\FileAssociations"; ValueType: string; ValueName: ".shtml"; ValueData: "PRISMHTML"
 Root: HKA; Subkey: "Software\Clients\StartMenuInternet\PRISM\Capabilities\FileAssociations"; ValueType: string; ValueName: ".xhtml"; ValueData: "PRISMHTML"
+Root: HKA; Subkey: "Software\Clients\StartMenuInternet\PRISM\Capabilities\FileAssociations"; ValueType: string; ValueName: ".pdf"; ValueData: "PRISMPDF"
+Root: HKA; Subkey: "Software\Clients\StartMenuInternet\PRISM\Capabilities\FileAssociations"; ValueType: string; ValueName: ".mhtml"; ValueData: "PRISMHTML"
+Root: HKA; Subkey: "Software\Clients\StartMenuInternet\PRISM\Capabilities\FileAssociations"; ValueType: string; ValueName: ".mht"; ValueData: "PRISMHTML"
+Root: HKA; Subkey: "Software\Clients\StartMenuInternet\PRISM\Capabilities\FileAssociations"; ValueType: string; ValueName: ".svg"; ValueData: "PRISMFILE"
+Root: HKA; Subkey: "Software\Clients\StartMenuInternet\PRISM\Capabilities\FileAssociations"; ValueType: string; ValueName: ".webp"; ValueData: "PRISMFILE"
+Root: HKA; Subkey: "Software\Clients\StartMenuInternet\PRISM\Capabilities\FileAssociations"; ValueType: string; ValueName: ".xml"; ValueData: "PRISMFILE"
 Root: HKA; Subkey: "Software\RegisteredApplications"; ValueType: string; ValueName: "PRISM"; ValueData: "Software\Clients\StartMenuInternet\PRISM\Capabilities"; Flags: uninsdeletevalue
 Root: HKA; Subkey: "Software\Classes\.htm\OpenWithProgids"; ValueType: string; ValueName: "PRISMHTML"; ValueData: ""; Flags: uninsdeletevalue
 Root: HKA; Subkey: "Software\Classes\.html\OpenWithProgids"; ValueType: string; ValueName: "PRISMHTML"; ValueData: ""; Flags: uninsdeletevalue
+; "Open with > PRISM" for files PRISM can show; never makes PRISM their default by itself.
+Root: HKA; Subkey: "Software\Classes\.xhtml\OpenWithProgids"; ValueType: string; ValueName: "PRISMHTML"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.shtml\OpenWithProgids"; ValueType: string; ValueName: "PRISMHTML"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.mhtml\OpenWithProgids"; ValueType: string; ValueName: "PRISMHTML"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.mht\OpenWithProgids"; ValueType: string; ValueName: "PRISMHTML"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.pdf\OpenWithProgids"; ValueType: string; ValueName: "PRISMPDF"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.svg\OpenWithProgids"; ValueType: string; ValueName: "PRISMFILE"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.webp\OpenWithProgids"; ValueType: string; ValueName: "PRISMFILE"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.avif\OpenWithProgids"; ValueType: string; ValueName: "PRISMFILE"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.png\OpenWithProgids"; ValueType: string; ValueName: "PRISMFILE"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.jpg\OpenWithProgids"; ValueType: string; ValueName: "PRISMFILE"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.jpeg\OpenWithProgids"; ValueType: string; ValueName: "PRISMFILE"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.gif\OpenWithProgids"; ValueType: string; ValueName: "PRISMFILE"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.bmp\OpenWithProgids"; ValueType: string; ValueName: "PRISMFILE"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.txt\OpenWithProgids"; ValueType: string; ValueName: "PRISMFILE"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.json\OpenWithProgids"; ValueType: string; ValueName: "PRISMFILE"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.xml\OpenWithProgids"; ValueType: string; ValueName: "PRISMFILE"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.log\OpenWithProgids"; ValueType: string; ValueName: "PRISMFILE"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Classes\.md\OpenWithProgids"; ValueType: string; ValueName: "PRISMFILE"; ValueData: ""; Flags: uninsdeletevalue
 
 [Run]
 Filename: "{app}\PRISM.exe"; Description: "{cm:LaunchProgram,PRISM}"; Flags: nowait postinstall skipifsilent runasoriginaluser

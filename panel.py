@@ -29,13 +29,13 @@ from vault import VaultError, generate_password
 if TYPE_CHECKING:
     from prism import PrismWindow, Tab
 
-ALL_SECTIONS = ("site", "network", "source", "design", "api", "terminal", "memory",
+ALL_SECTIONS = ("site", "network", "source", "design", "api", "terminal", "downloads", "memory",
                 "containers", "permissions", "vault", "bookmarks")
 # Sections named after an edition feature disappear with it (see edition.py).
 SECTIONS = tuple(s for s in ALL_SECTIONS if enabled(s))
 # Panel actions that belong to an edition feature: "vault.fill" -> "vault".
 ACTION_FEATURES = {"vault": "vault", "term": "terminal"}
-LIVE = {"site": 1, "network": 1, "memory": 2, "containers": 2, "design": 2}   # refresh period (s)
+LIVE = {"site": 1, "network": 1, "memory": 2, "containers": 2, "design": 2, "downloads": 1}   # refresh period (s)
 
 PAGE_META_JS = r"""(function () {
   var q = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
@@ -597,6 +597,37 @@ class PanelBridge(QObject):
         self.push_section("containers")
 
     # ========================================================= PERMISSIONS
+    # ============================================================ DOWNLOADS
+    def _data_downloads(self) -> dict:
+        return self.w.downloads.summary()
+
+    def _do_dl_open(self, p):
+        self.w.downloads.open(int(p.get("id", 0)))
+
+    def _do_dl_reveal(self, p):
+        self.w.downloads.reveal(int(p.get("id", 0)))
+
+    def _do_dl_cancel(self, p):
+        self.w.downloads.cancel(int(p.get("id", 0)))
+
+    def _do_dl_clear(self, _p):
+        self.w.downloads.clear_finished()
+
+    def _do_dl_mode(self, p):
+        self.w.downloads.set_mode(p.get("mode", ""))
+        self.push_section("downloads")
+
+    def _do_dl_folder(self, _p):
+        self.w.downloads.choose_default_dir()
+        self.push_section("downloads")
+
+    def _do_dl_openFolder(self, _p):
+        from downloads import open_folder
+        open_folder(self.w.downloads.default_dir())
+
+    def _do_dl_openFile(self, _p):
+        self.w.open_files()
+
     def _data_permissions(self) -> dict:
         s = self.w.settings
         pending = []
