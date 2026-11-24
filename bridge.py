@@ -105,6 +105,12 @@ class Bridge(QObject):
     @pyqtSlot()
     def focusPage(self): self.w.current().view.setFocus()
 
+    @pyqtSlot()
+    def timeMachine(self): self.w.toggle_time_machine()
+
+    @pyqtSlot(int, int, int, int)
+    def downloadsMenu(self, x, y, w, h): self.w.downloads_menu(x, y, w, h)
+
     @pyqtSlot(int)
     def setChromeHeight(self, h):
         if 20 <= h <= 400:

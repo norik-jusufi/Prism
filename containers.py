@@ -186,6 +186,7 @@ class ContainersMixin:
             c.profile.setNotificationPresenter(self.present_notification)
         scripts = c.profile.scripts()
         scripts.insert(cosmetic_script(self.engine.site_allow))
+        self.install_probe(c)
         if c.login_dir is not None:
             store.loadAllCookies()      # saved logins show up in the Containers panel
         self.containers[cid] = c
@@ -292,6 +293,10 @@ class ContainersMixin:
             "expires": "" if ck.isSessionCookie() else ck.expirationDate().toString(Qt.DateFormat.ISODate),
             "size": len(bytes(ck.value())), "purpose": purpose, "who": who, "_cookie": ck,
         }
+        site = site_of(ck.domain().lstrip("."))
+        for t in self.tabs:
+            if t.container is c and site and site_of(t.url.host()) == site:
+                self.timemachine.cookie(t, ck.domain(), name, purpose, who)
 
     def site_cookies(self, tab: "Tab") -> list[dict]:
         site = site_of(tab.url.host())
@@ -314,4 +319,5 @@ class ContainersMixin:
             for t in self.tabs:
                 if t.container.id == cid and site_of(t.url.host()) == site:
                     t.log.cookies_refused.append({"origin": origin})
+                    self.timemachine.add(t, {"k": "ckref", "h": origin})
                     self.mark_dirty(t)

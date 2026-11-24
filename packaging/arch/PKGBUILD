@@ -8,7 +8,7 @@
 # Update: git pull, then makepkg -si again. Remove: sudo pacman -R prism.
 
 pkgname=prism
-pkgver=1.1.3beta.r0
+pkgver=1.1.4beta.r0
 pkgrel=1
 pkgdesc="Privacy-first research browser built and maintained by Synterra (ad, tracker and malware blocking, containers, encrypted DNS)"
 arch=('any')

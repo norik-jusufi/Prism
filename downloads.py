@@ -23,9 +23,11 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PyQt6.QtCore import QObject, QPoint, QSize, QStandardPaths, Qt, QUrl, pyqtSignal
-from PyQt6.QtGui import QDesktopServices, QFontMetrics, QKeySequence, QShortcut
-from PyQt6.QtWidgets import (QCheckBox, QComboBox, QDialog, QFileDialog, QFrame, QGraphicsDropShadowEffect,
+from PyQt6.QtCore import QObject, QPoint, QRect, QRectF, QSize, QStandardPaths, Qt, QTimer, QUrl, pyqtSignal
+from PyQt6.QtGui import (QColor, QDesktopServices, QFontMetrics, QKeySequence, QLinearGradient, QPainter,
+                         QShortcut)
+from PyQt6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDialog, QFileDialog, QFrame,
+                             QGraphicsDropShadowEffect,
                              QHBoxLayout, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton,
                              QVBoxLayout, QWidget)
 
@@ -319,6 +321,7 @@ class Downloads(QObject):
     """Decides where each download goes and keeps this session's list."""
 
     changed = pyqtSignal()
+    progress = pyqtSignal()      # throttled: a few times a second while something downloads
 
     def __init__(self, window: "PrismWindow"):
         super().__init__(window)
@@ -330,6 +333,10 @@ class Downloads(QObject):
         conf.setdefault("recent", [])
         self.items: list[dict] = []          # newest first; memory only
         self._n = 0
+        self._flyout: DownloadsFlyout | None = None
+        self._last_done = 0.0                # when a download last finished (toolbar flash)
+        self._tick = QTimer(self, interval=250)
+        self._tick.timeout.connect(self._on_tick)
 
     @property
     def conf(self) -> dict:
@@ -382,13 +389,15 @@ class Downloads(QObject):
         self._n += 1
         item = {"id": self._n, "name": target.name, "path": str(target), "url": download.url().toString(),
                 "source": source, "received": 0, "total": download.totalBytes(), "state": "progress",
-                "started": time.time(), "_d": download}
+                "started": time.time(), "speed": 0.0, "_d": download, "_s": (time.monotonic(), 0)}
         self.items.insert(0, item)
         del self.items[50:]
         download.receivedBytesChanged.connect(lambda i=item, d=download: self._progress(i, d))
         download.isFinishedChanged.connect(lambda i=item, d=download: self._finished(i, d))
         self.w.bridge.toast.emit(f"downloading {target.name}")
+        self._tick.start()
         self.changed.emit()
+        self.progress.emit()
 
     def _remember(self, folder: Path) -> None:
         recent = [f for f in self.conf.get("recent", []) if os.path.normcase(f) != os.path.normcase(str(folder))]
@@ -398,14 +407,35 @@ class Downloads(QObject):
         self.settings.save()
 
     def _progress(self, item: dict, d) -> None:
-        # No signal here (it fires per chunk): the panel refreshes the list every second.
+        # No signal here (it fires per chunk): _on_tick reports a few times a second.
         item["received"], item["total"] = d.receivedBytes(), d.totalBytes()
+        t0, b0 = item["_s"]
+        now = time.monotonic()
+        if now - t0 >= 0.5:
+            rate = (item["received"] - b0) / (now - t0)
+            item["speed"] = rate if not item["speed"] else 0.6 * item["speed"] + 0.4 * rate
+            item["_s"] = (now, item["received"])
+
+    def _on_tick(self) -> None:
+        if not any(i["state"] == "progress" for i in self.items):
+            self._tick.stop()
+        self.progress.emit()
+        if self._flyout is not None and self._flyout.isVisible():
+            self._flyout.refresh()
 
     def _finished(self, item: dict, d) -> None:
         state = d.state().name
         item["received"], item["total"] = d.receivedBytes(), d.totalBytes()
         item["state"] = {"DownloadCompleted": "done", "DownloadCancelled": "cancelled"}.get(state, "failed")
         item.pop("_d", None)
+        item.pop("_s", None)
+        item["speed"] = 0.0
+        if item["state"] == "done":
+            self._last_done = time.time()
+            QTimer.singleShot(4200, self.progress.emit)      # end the toolbar's "done" flash
+        self.progress.emit()
+        if self._flyout is not None and self._flyout.isVisible():
+            self._flyout.refresh()
         if item["state"] == "done":
             self.w.bridge.toast.emit(f"saved {item['name']} to {Path(item['path']).parent}")
         elif item["state"] == "failed":
@@ -441,6 +471,7 @@ class Downloads(QObject):
     def clear_finished(self) -> None:
         self.items = [i for i in self.items if i["state"] == "progress"]
         self.changed.emit()
+        self.progress.emit()
 
     def summary(self) -> dict:
         return {
@@ -449,3 +480,234 @@ class Downloads(QObject):
             "dir": str(self.default_dir()),
             "items": [{k: v for k, v in i.items() if not k.startswith("_")} for i in self.items],
         }
+
+    def badge(self) -> dict:
+        """What the toolbar's downloads button shows: a progress ring while downloading."""
+        active = [i for i in self.items if i["state"] == "progress"]
+        known = [i for i in active if i["total"] > 0]
+        total = sum(i["total"] for i in known)
+        frac = (sum(i["received"] for i in known) / total) if total else -1
+        return {"count": len(self.items), "active": len(active), "progress": round(frac, 4) if active else -1,
+                "speed": round(sum(i.get("speed", 0) for i in active)),
+                "justDone": time.time() - self._last_done < 4,
+                "failed": any(i["state"] == "failed" for i in self.items[:1])}
+
+    def show_flyout(self, anchor: QRect) -> None:
+        if self._flyout is None:
+            self._flyout = DownloadsFlyout(self)
+        self._flyout.refresh()
+        screen = QApplication.screenAt(anchor.center()) or QApplication.primaryScreen()
+        area = screen.availableGeometry()
+        x = min(anchor.right() - self._flyout.width() + 14, area.right() - self._flyout.width())
+        self._flyout.move(max(area.left(), x), anchor.bottom() - 4)
+        self._flyout.show()
+        self._flyout.raise_()
+
+def eta(item: dict) -> str:
+    speed, left = item.get("speed", 0), item["total"] - item["received"]
+    if item["total"] <= 0 or speed <= 1:
+        return ""
+    s = int(left / speed)
+    if s < 60:
+        return f"{s}s left"
+    if s < 3600:
+        return f"{s // 60}m {s % 60:02d}s left"
+    return f"{s // 3600}h {s % 3600 // 60}m left"
+
+
+# --------------------------------------------------------------- flyout
+FLYOUT_QSS = DIALOG_QSS + """
+#flyhead { color:#36f59b; font-size:11px; letter-spacing:2px; }
+#flycount { color:#5f8270; font-size:11px; }
+#row { background:#040a07; border:1px solid #163826; border-radius:8px; }
+#row[state="progress"] { border-color:#1f5537; }
+#row[state="failed"], #row[state="cancelled"] { border-color:#3a1d22; }
+#fname { color:#e8f5ec; font-size:12px; }
+#fmeta { color:#5f8270; font-size:10.5px; }
+#fmeta[state="failed"] { color:#ff5f6d; }
+#pct { color:#36f59b; font-size:11px; font-weight:bold; }
+#mini { background:transparent; border:1px solid #1f5537; border-radius:5px; padding:3px 9px; font-size:10.5px; }
+#mini:hover { border-color:#36f59b; color:#36f59b; }
+#link { background:transparent; border:none; color:#5f8270; padding:4px 2px; font-size:11px; }
+#link:hover { color:#36f59b; }
+#empty { color:#5f8270; font-size:11.5px; padding:18px 4px; }
+"""
+
+
+class _Bar(QWidget):
+    """A thin glowing progress bar; a moving block when the size is unknown."""
+
+    def __init__(self):
+        super().__init__()
+        self.setFixedHeight(6)
+        self.value = 0.0          # 0..1, or -1 = unknown
+        self.state = "progress"
+        self._phase = 0.0
+
+    def set(self, value: float, state: str) -> None:
+        self.value, self.state = value, state
+        self._phase = (self._phase + 0.04) % 1.0
+        self.update()
+
+    def paintEvent(self, _e):  # noqa: N802
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        r = QRectF(self.rect()).adjusted(0, 1, 0, -1)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor("#0b1a12"))
+        p.drawRoundedRect(r, 2, 2)
+        color = QColor({"done": "#36f59b", "failed": "#ff5f6d", "cancelled": "#5f8270"}.get(self.state, "#36f59b"))
+        if self.state == "progress" and self.value < 0:
+            w = r.width() * 0.25
+            x = r.left() + (r.width() + w) * self._phase - w
+            left = max(r.left(), x)
+            fill = QRectF(left, r.top(), max(0.0, min(x + w, r.right()) - left), r.height())
+        else:
+            v = 1.0 if self.state != "progress" else max(0.0, min(1.0, self.value))
+            fill = QRectF(r.left(), r.top(), r.width() * v, r.height())
+        if fill.width() > 0:
+            g = QLinearGradient(fill.left(), 0, fill.right(), 0)
+            g.setColorAt(0, QColor("#1fa866") if self.state == "progress" else color)
+            g.setColorAt(1, color)
+            p.setBrush(g)
+            p.drawRoundedRect(fill, 2, 2)
+        p.end()
+
+
+class _Row(QFrame):
+    def __init__(self, mgr: "Downloads", item_id: int):
+        super().__init__(objectName="row")
+        self.mgr, self.id = mgr, item_id
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(12, 9, 10, 9)
+        lay.setSpacing(6)
+        top = QHBoxLayout()
+        top.setSpacing(8)
+        self.name = QLabel(objectName="fname")
+        self.pct = QLabel(objectName="pct")
+        top.addWidget(self.name, 1)
+        top.addWidget(self.pct)
+        lay.addLayout(top)
+        self.bar = _Bar()
+        lay.addWidget(self.bar)
+        bottom = QHBoxLayout()
+        bottom.setSpacing(6)
+        self.meta = QLabel(objectName="fmeta")
+        bottom.addWidget(self.meta, 1)
+        self.buttons: dict[str, QPushButton] = {}
+        for key, label, fn in (("open", "Open", mgr.open), ("show", "Show in folder", mgr.reveal),
+                               ("cancel", "Cancel", mgr.cancel)):
+            b = QPushButton(label, objectName="mini")
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.clicked.connect(lambda _c=False, fn=fn: self._act(fn))
+            bottom.addWidget(b)
+            self.buttons[key] = b
+        lay.addLayout(bottom)
+
+    def _act(self, fn) -> None:
+        fn(self.id)
+        if self.mgr._flyout is not None:
+            self.mgr._flyout.refresh()
+
+    def update_from(self, item: dict) -> None:
+        state = item["state"]
+        fm = QFontMetrics(self.name.font())
+        self.name.setText(fm.elidedText(item["name"], Qt.TextElideMode.ElideMiddle, 250))
+        self.name.setToolTip(item["path"])
+        total, got = item["total"], item["received"]
+        frac = got / total if total > 0 else -1
+        self.bar.set(frac, state)
+        if state == "progress":
+            self.pct.setText(f"{frac * 100:.0f}%" if frac >= 0 else "...")
+            parts = [f"{human_size(got)} of {human_size(total)}" if total > 0 else human_size(got)]
+            if item.get("speed", 0) > 1:
+                parts.append(f"{human_size(int(item['speed']))}/s")
+            if eta(item):
+                parts.append(eta(item))
+            self.meta.setText("  ·  ".join(parts))
+        else:
+            self.pct.setText({"done": "✓", "failed": "✕", "cancelled": "–"}.get(state, ""))
+            self.meta.setText({"done": f"{human_size(got)}  ·  {item['source']}",
+                               "failed": "failed", "cancelled": "cancelled"}.get(state, state))
+        for w in (self, self.meta):
+            if w.property("state") != state:
+                w.setProperty("state", state)
+                w.style().unpolish(w)
+                w.style().polish(w)
+        self.buttons["open"].setVisible(state == "done")
+        self.buttons["show"].setVisible(state == "done")
+        self.buttons["cancel"].setVisible(state == "progress")
+
+
+class DownloadsFlyout(QFrame):
+    """Drops down from the toolbar's downloads button: this session's downloads, live."""
+
+    def __init__(self, mgr: "Downloads"):
+        super().__init__(mgr.w, Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
+        self.mgr = mgr
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setStyleSheet(FLYOUT_QSS)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(14, 10, 14, 18)
+        card = QFrame(objectName="card")
+        shadow = QGraphicsDropShadowEffect(card)
+        shadow.setBlurRadius(32)
+        shadow.setOffset(0, 8)
+        shadow.setColor(Qt.GlobalColor.black)
+        card.setGraphicsEffect(shadow)
+        outer.addWidget(card)
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(14, 12, 14, 12)
+        lay.setSpacing(8)
+        head = QHBoxLayout()
+        head.addWidget(QLabel("⤓  DOWNLOADS", objectName="flyhead"))
+        head.addStretch(1)
+        self.count = QLabel(objectName="flycount")
+        head.addWidget(self.count)
+        lay.addLayout(head)
+        self.list = QVBoxLayout()
+        self.list.setSpacing(6)
+        lay.addLayout(self.list)
+        self.empty = QLabel("No downloads in this session yet.", objectName="empty")
+        lay.addWidget(self.empty)
+        foot = QHBoxLayout()
+        for label, fn in (("All downloads (Ctrl+J)", self._panel), ("Open folder", self._folder),
+                          ("Clear finished", self._clear)):
+            b = QPushButton(label, objectName="link")
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            b.clicked.connect(fn)
+            foot.addWidget(b)
+            if label.startswith("All"):
+                foot.addStretch(1)
+        lay.addLayout(foot)
+        self.rows: dict[int, _Row] = {}
+        self.setFixedWidth(440)
+
+    def _panel(self) -> None:
+        self.hide()
+        self.mgr.w.toggle_panel("downloads", force=True)
+
+    def _folder(self) -> None:
+        self.hide()
+        open_folder(self.mgr.default_dir())
+
+    def _clear(self) -> None:
+        self.mgr.clear_finished()
+        self.refresh()
+
+    def refresh(self) -> None:
+        items = self.mgr.items[:6]
+        ids = [i["id"] for i in items]
+        for rid in list(self.rows):
+            if rid not in ids:
+                self.rows.pop(rid).deleteLater()
+        for pos, item in enumerate(items):
+            row = self.rows.get(item["id"])
+            if row is None:
+                row = self.rows[item["id"]] = _Row(self.mgr, item["id"])
+            self.list.insertWidget(pos, row)
+            row.update_from(item)
+        active = sum(1 for i in self.mgr.items if i["state"] == "progress")
+        self.count.setText(f"{active} active" if active else f"{len(self.mgr.items)} this session")
+        self.empty.setVisible(not items)
+        self.adjustSize()

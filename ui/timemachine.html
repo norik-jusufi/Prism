@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PRISM Privacy Time Machine</title>
+<link rel="stylesheet" href="theme.css">
+<link rel="stylesheet" href="timemachine.css">
+</head>
+<body>
+<div id="app" class="booting">
+  <i class="crt" aria-hidden="true"></i>
+  <i class="vignette" aria-hidden="true"></i>
+
+  <!-- boot sequence -->
+  <div id="boot" class="boot" aria-hidden="true"><pre id="boot-text"></pre></div>
+
+  <!-- VHS rewind overlay -->
+  <div id="rw" class="rw" hidden><span>◀◀ REWIND</span><i></i></div>
+
+  <header class="head">
+    <div class="title">
+      <span class="glitch" data-text="PRIVACY TIME MACHINE">PRIVACY TIME MACHINE</span>
+      <span class="rec" id="rec-badge"><i></i>REC</span>
+    </div>
+    <div class="target">
+      <span class="k">target&gt;</span>
+      <b id="t-origin">—</b>
+      <span id="t-meta" class="muted"></span>
+    </div>
+    <div class="head-actions">
+      <label class="sel" title="Recordings of this tab">
+        <span class="k">tape</span>
+        <select id="tapes"></select>
+      </label>
+      <button id="b-reload" class="btn" title="Reload the page and record it from the start">⟳ re-record</button>
+      <button id="b-export" class="btn" title="Save this recording as JSON (metadata only)">⤓ export</button>
+      <button id="b-close" class="btn close" title="Back to the page (Esc)">✕</button>
+    </div>
+  </header>
+
+  <section class="verdict" id="verdict">
+    <div class="v-main">
+      <span class="v-k" id="v-k">STATUS</span>
+      <span class="v-text" id="v-text">—</span>
+    </div>
+    <div class="counters">
+      <div class="ctr"><b id="c-servers">0</b><span>servers</span></div>
+      <div class="ctr"><b id="c-scripts">0</b><span>scripts</span></div>
+      <div class="ctr warn"><b id="c-collect">0</b><span>collection attempts</span></div>
+      <div class="ctr bad"><b id="c-trackers">0</b><span>trackers</span></div>
+      <div class="ctr good"><b id="c-stopped">0</b><span>stopped</span></div>
+    </div>
+  </section>
+
+  <main class="grid" id="grid">
+    <section class="card map-card">
+      <h2><span>01</span> NETWORK MAP <em>who it talked to</em></h2>
+      <div class="map-wrap"><canvas id="map"></canvas></div>
+      <div class="legend">
+        <span><i class="lg-1p"></i>first party</span>
+        <span><i class="lg-3p"></i>third party</span>
+        <span><i class="lg-trk"></i>tracker</span>
+        <span><i class="lg-blk"></i>stopped</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span>02</span> DATA COLLECTION <em>what it tried to collect</em></h2>
+      <div class="list" id="collect"></div>
+    </section>
+
+    <section class="card">
+      <h2><span>03</span> PROTECTIONS <em>what stopped it</em></h2>
+      <div class="list" id="prot"></div>
+    </section>
+
+    <section class="card">
+      <h2><span>04</span> EXTERNAL SERVERS <em>contacted, in order</em></h2>
+      <div class="list" id="servers"></div>
+    </section>
+
+    <section class="card">
+      <h2><span>05</span> SCRIPTS <em>what ran, what was stopped</em></h2>
+      <div class="list" id="scripts"></div>
+    </section>
+
+    <section class="card log-card">
+      <h2><span>06</span> EVENT STREAM <em>raw tape</em></h2>
+      <div class="log" id="log"></div>
+    </section>
+  </main>
+
+  <!-- empty state -->
+  <section class="nosignal" id="nosignal" hidden>
+    <div class="ns-box">
+      <div class="glitch big" data-text="NO SIGNAL">NO SIGNAL</div>
+      <p>Nothing recorded in <b id="ns-tab">this tab</b> yet.</p>
+      <p class="muted">Open a website, then press <kbd>rewind</kbd> (or <kbd>Ctrl+Shift+H</kbd>) to replay what it did:
+         the servers it contacted, the scripts it ran, the data it tried to collect and what PRISM stopped.</p>
+    </div>
+  </section>
+
+  <footer class="transport" id="transport">
+    <div class="controls">
+      <button class="tbtn" id="p-start" title="Rewind to the start (Home)">⏮</button>
+      <button class="tbtn" id="p-back" title="Back 1 s (←, Shift+← = 5 s)">◀◀</button>
+      <button class="tbtn play" id="p-play" title="Play / pause (Space)">▶</button>
+      <button class="tbtn" id="p-fwd" title="Forward 1 s (→)">▶▶</button>
+      <button class="tbtn" id="p-end" title="Jump to now (End)">⏭</button>
+      <div class="speeds" id="speeds"></div>
+      <div class="clock"><b id="clk">T+00:00.000</b><span id="dur">/ 00:00.000</span></div>
+      <button class="live" id="p-live" title="Follow the live recording">● LIVE</button>
+    </div>
+    <div class="timeline" id="timeline">
+      <canvas id="tl"></canvas>
+      <div class="tl-tip" id="tl-tip" hidden></div>
+    </div>
+    <div class="foot">
+      <span class="lock">⛨</span>
+      <span class="muted">Metadata only: hosts, timings, block reasons, cookie &amp; storage <i>names</i>. Never page content,
+        form input, cookie values or query strings. Kept in memory, wiped by purge.</span>
+      <span class="spacer"></span>
+      <label class="tog" title="A small watcher in each page reports fingerprinting and storage API use (applies from the next page load)">
+        <input type="checkbox" id="s-probes"><i></i>watch fingerprinting APIs</label>
+      <label class="tog" title="Keep whole addresses (with query strings) instead of origin + file name (applies from the next page load)">
+        <input type="checkbox" id="s-full"><i></i>record full URLs</label>
+    </div>
+  </footer>
+</div>
+<script src="timemachine.js"></script>
+</body>
+</html>

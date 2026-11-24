@@ -18,7 +18,7 @@
     findbar: $("#findbar"), find: $("#find"), findCount: $("#find-count"),
     ctr: $("#ctr"), trust: $("#trust"), jsoff: $("#jsoff"), dns: $("#dns"),
     split: $("#t-split"), resp: $("#t-resp"), insp: $("#t-insp"), term: $("#t-term"), panel: $("#t-panel"),
-    permbar: $("#permbar"), devbar: $("#devbar"), presets: $("#presets"),
+    permbar: $("#permbar"), devbar: $("#devbar"), presets: $("#presets"), dl: $("#dl"), tm: $("#tm"),
     devW: $("#dev-w"), devH: $("#dev-h"), devScale: $("#dev-scale"),
   };
   let promptId = null;
@@ -107,6 +107,8 @@
     els.panel.classList.toggle("on", s.panel && s.panelSection !== "terminal");
     els.term.classList.toggle("on", s.panel && s.panelSection === "terminal");
     $("#devtools").classList.toggle("on", s.devtools);
+    els.tm.classList.toggle("on", !!s.timeMachine);
+    renderDownloads(s.downloads);
 
     // permission prompt
     els.permbar.hidden = !s.prompt;
@@ -142,6 +144,32 @@
       if (!findWasOpen) { els.find.value = s.find.text; focusFind(); }
     }
     findWasOpen = s.find.open;
+  }
+
+  function renderDownloads(d) {
+    if (!d) return;
+    const b = els.dl;
+    const active = d.active > 0;
+    b.classList.toggle("active", active);
+    b.classList.toggle("indet", active && d.progress < 0);
+    b.classList.toggle("just-done", !active && d.justDone);
+    b.classList.toggle("failed", !active && !d.justDone && d.failed);
+    b.style.setProperty("--p", active && d.progress >= 0 ? (d.progress * 100).toFixed(1) : (active ? 25 : 0));
+    const badge = b.querySelector(".badge");
+    badge.hidden = d.active < 2;
+    badge.textContent = d.active;
+    b.title = active
+      ? `Downloading ${d.active} file${d.active > 1 ? "s" : ""}` +
+        (d.progress >= 0 ? ` · ${Math.round(d.progress * 100)}%` : "") +
+        (d.speed > 0 ? ` · ${humanSpeed(d.speed)}` : "") + "\nClick for details"
+      : d.count ? `Downloads (${d.count} this session)` : "Downloads";
+  }
+
+  function humanSpeed(n) {
+    const u = ["B/s", "KB/s", "MB/s", "GB/s"];
+    let i = 0;
+    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return (i ? n.toFixed(1) : Math.round(n)) + " " + u[i];
   }
 
   function renderDisplay(s) {
@@ -244,6 +272,11 @@
   els.home.onclick = () => bridge.home();
   els.devtools.onclick = () => bridge.devtools();
   els.shield.onclick = () => bridge.toggleShield();
+  els.tm.onclick = () => bridge.timeMachine();
+  els.dl.onclick = () => {
+    const r = els.dl.getBoundingClientRect();
+    bridge.downloadsMenu(Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height));
+  };
 
   // purge needs a second click within 3s
   let purgeTimer = null;

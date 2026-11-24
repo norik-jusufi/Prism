@@ -364,3 +364,38 @@ svg { width: 16px; height: 16px; fill: none; stroke: currentColor;
 
 @media (max-width: 1250px) { .tools #t-term { display: none; } }
 @media (max-width: 1100px) { .dnsflag, .jsoff { display: none; } }
+
+/* ============================================ v3: downloads + time machine */
+
+/* downloads button: progress ring around the arrow while files download */
+.dl { position: relative; margin-right: 4px; }
+.dl .ring { position: absolute; inset: 1px; width: 30px; height: 30px; transform: rotate(-90deg);
+            opacity: 0; transition: opacity .25s; overflow: visible; }
+.dl .ring circle { fill: none; stroke-width: 2.4; stroke-linecap: round; }
+.dl .ring .track { stroke: var(--line-2); }
+.dl .ring .val { stroke: var(--green); stroke-dasharray: var(--p, 0) 100;
+                 filter: drop-shadow(0 0 3px var(--green)); transition: stroke-dasharray .3s ease-out; }
+.dl.active .ring { opacity: 1; }
+.dl.active { color: var(--green); }
+.dl.active .arrow { width: 13px; height: 13px; animation: dl-drop 1.3s ease-in-out infinite; }
+.dl.indet .ring { animation: spin 1.1s linear infinite; }
+.dl .done { display: none; color: var(--green); }
+.dl.just-done .arrow { display: none; }
+.dl.just-done .done { display: block; animation: dl-pop .45s ease-out; filter: drop-shadow(0 0 5px var(--green)); }
+.dl.just-done { border-color: var(--green-dim); background: rgba(54,245,155,.14); }
+.dl.failed { color: var(--danger); }
+.dl .badge { position: absolute; right: -1px; top: -1px; min-width: 13px; height: 13px; padding: 0 3px;
+             font-size: 9px; line-height: 13px; font-weight: 700; color: var(--bg); background: var(--green);
+             border-radius: 7px; box-shadow: 0 0 6px var(--green-glow); }
+@keyframes dl-drop { 0%, 100% { transform: translateY(-1.5px); } 50% { transform: translateY(1.5px); } }
+@keyframes dl-pop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.2); } 100% { transform: none; } }
+
+/* time machine chip */
+.tm { color: #8fe9ff; border-color: #1d4a55; }
+.tm svg { transition: transform .4s ease-out; }
+.tm:hover { color: #b8f3ff; border-color: #4fd6ff; background: rgba(79,214,255,.10); }
+.tm:hover svg { transform: rotate(-200deg); }
+.tm.on { color: var(--bg); background: #4fd6ff; border-color: #4fd6ff; box-shadow: 0 0 12px rgba(79,214,255,.5); }
+.tm.on svg { animation: spin 2.2s linear infinite reverse; }
+
+@media (max-width: 1000px) { .tm .label { display: none; } }

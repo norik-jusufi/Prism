@@ -13,7 +13,7 @@ from PyQt6.QtCore import QTimer, QUrl
 from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineScript
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 
-from adblock import RequestLogger
+from adblock import RequestLogger, tracking_params
 from containers import CONTAINER_PRESETS, Container
 from siteintel import TabLog
 from theme import BG_DARK
@@ -56,10 +56,16 @@ class ContentPage(QWebEnginePage):
         if is_main:
             self.tab.pending_url = url.toString()
             self.w.apply_page_rules(self.tab, url)
+            removed = tracking_params(url)
+            if removed:
+                self.w.timemachine.stripped(self.tab, removed)
         return True
 
-    def javaScriptConsoleMessage(self, *args):  # keep the terminal quiet
-        pass
+    def javaScriptConsoleMessage(self, _level, message, _line, _source):  # noqa: N802
+        # Keeps the terminal quiet; only the Time Machine's watcher is listened to.
+        tm = self.w.timemachine
+        if message.startswith(tm.token):
+            tm.on_probe(self.tab, message[len(tm.token):])
 
 
 class ContentView(QWebEngineView):
@@ -120,14 +126,18 @@ class Tab:
         self.inspector = False
         self.discarded = False
         self.js_enabled = True
+        self.tm_pending: list[dict] = []   # Time Machine events seen before the page's recording starts
         self.window = window
 
     def _on_request(self, url, host, rtype, first_party, is_main):
+        tm = self.window.timemachine
         if is_main:
             self.log.reset(url)
             self.headers = None
             self.cert_error = ""
+            tm.begin(self, url)
         self.log.add(url, host, rtype, first_party or host)
+        tm.request(self, url, host, rtype)
         self.window.mark_dirty(self)
 
     @property

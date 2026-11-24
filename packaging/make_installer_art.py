@@ -6,6 +6,9 @@ that fits the screen's DPI best):
   small-<w>.png    top-right corner image on the other pages
   back-<w>.png     background of every wizard page (497:360), kept faint so
                    text stays readable
+  rail-<dpi>.png   the side rail of PRISM's own borderless setup window
+                   (prism.iss [Code]): logo, wordmark, an empty band where the
+                   live step list sits, and the footer. One per DPI step.
 
 Made with Qt, so no extra package is needed. build_windows.bat runs it.
 Colours are the ones in ui/theme.css.
@@ -39,6 +42,10 @@ MUTED = QColor("#5f8270")
 WIZARD = [(202, 386), (269, 515), (336, 643), (403, 772), (430, 824), (534, 1022)]
 SMALL = [58, 72, 87, 101, 116, 145]
 BACK = [(596, 432), (796, 576), (994, 720), (1272, 922), (1630, 1148)]
+# The setup window's side rail at 100% DPI; prism.iss uses the same numbers.
+RAIL_W, RAIL_H = 232, 470
+RAIL_STEPS_TOP, RAIL_STEPS_H = 238, 170          # plain band behind the step list
+RAIL_DPI = [100, 125, 150, 175, 200, 250]
 
 
 def rgba(c: QColor, a: float) -> QColor:
@@ -132,6 +139,47 @@ def back(w: int, h: int) -> QImage:
     return img
 
 
+def rail(dpi: int, logo: QImage) -> QImage:
+    s = dpi / 100
+    w, h = round(RAIL_W * s), round(RAIL_H * s)
+    img = QImage(w, h, QImage.Format.Format_RGB32)
+    img.fill(BG)
+    p = QPainter(img)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+    p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+    grid(p, w, h, 16 * s, 0.45)
+    glow(p, w * 0.5, 92 * s, 150 * s, 0.22)
+    glow(p, w * 0.1, h, 160 * s, 0.06)
+    # the step list sits on a plain band (its labels paint a solid background)
+    p.fillRect(QRectF(0, RAIL_STEPS_TOP * s, w, RAIL_STEPS_H * s), BG)
+    p.setPen(QPen(rgba(LINE, 0.9), max(1.0, s)))
+    for y in (RAIL_STEPS_TOP * s, (RAIL_STEPS_TOP + RAIL_STEPS_H) * s):
+        p.drawLine(QPointF(18 * s, y), QPointF(w - 18 * s, y))
+
+    side = 112 * s
+    p.drawImage(QRectF((w - side) / 2, 34 * s, side, side), logo)
+    p.setPen(GREEN)
+    f = mono(27 * s)
+    f.setLetterSpacing(QFont.SpacingType.PercentageSpacing, 130)
+    p.setFont(f)
+    p.drawText(QRectF(0, 152 * s, w, 36 * s), Qt.AlignmentFlag.AlignHCenter, "PRISM")
+    p.setPen(TEXT_2)
+    p.setFont(mono(10.5 * s, QFont.Weight.Normal))
+    p.drawText(QRectF(0, 190 * s, w, 18 * s), Qt.AlignmentFlag.AlignHCenter, "privacy-first browser")
+    p.setPen(MUTED)
+    p.setFont(mono(9.5 * s, QFont.Weight.Normal))
+    p.drawText(QRectF(0, h - 34 * s, w, 16 * s), Qt.AlignmentFlag.AlignHCenter, "> built by synterra_")
+
+    edge = QLinearGradient(0, 0, 0, h)
+    edge.setColorAt(0, rgba(GREEN, 0))
+    edge.setColorAt(0.45, rgba(GREEN, 0.75))
+    edge.setColorAt(1, rgba(GREEN, 0))
+    p.fillRect(QRectF(w - max(1, 1.5 * s), 0, max(1, 1.5 * s), h), edge)
+    p.end()
+    return img
+
+
 def main() -> int:
     _app = QGuiApplication(sys.argv)
     logo = QImage(str(ROOT / "assets" / "logo.png"))
@@ -148,6 +196,8 @@ def main() -> int:
         small(n, icon).save(str(OUT / f"small-{n}.png"))
     for w, h in BACK:
         back(w, h).save(str(OUT / f"back-{w}.png"))
+    for dpi in RAIL_DPI:
+        rail(dpi, logo).save(str(OUT / f"rail-{dpi}.png"))
     print(f"wrote installer artwork to {OUT}")
     return 0
 

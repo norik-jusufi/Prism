@@ -5,6 +5,7 @@
 **A privacy-first research browser, built and maintained by [Synterra](#about-synterra).**
 
 PRISM blocks ads, trackers, malware and phishing out of the box, keeps your logins apart in containers, sends DNS encrypted, and puts a full developer toolkit one shortcut away.
+Its **Privacy Time Machine** lets you rewind any page and watch what it tried to do to you.
 Built only with **Python**: the engine, privacy and ad blocking, and **HTML / CSS / JS**: the whole visible UI.
 Search runs through **[LibreSearch](https://www.libresearch.ca)**.
 
@@ -65,7 +66,7 @@ The build bundles Python, Qt WebEngine (Chromium), the UI and fresh blocklists; 
 
 Both scripts make their own build environment in `build/venv` (pinned in `requirements.txt` and `packaging/requirements-build.txt`) and download fresh blocklists first (`SKIP_BLOCKLISTS=1` skips that).
 
-**Windows installer.** Dark and green like PRISM itself (artwork drawn at build time by `packaging/make_installer_art.py`). Choose "for me only" (no admin rights, `%LOCALAPPDATA%\Programs\PRISM`) or "for all users" (Program Files). Adds a Start menu entry, an "Update blocklists" entry and an optional desktop shortcut, and registers an uninstaller in Settings → Apps.
+**Windows installer.** Not the stock wizard: PRISM's own borderless setup window with rounded corners (native on Windows 11), a side rail with the logo and a live step list, typed headlines, pages that slide in, pill buttons and a glowing progress bar. Built on Inno Setup's pages and logic ([Code] in `packaging/windows/prism.iss`; rail artwork drawn at build time by `packaging/make_installer_art.py`), so updates, silent installs and `/TASKS` work as before. Choose "for me only" (no admin rights, `%LOCALAPPDATA%\Programs\PRISM`) or "for all users" (Program Files). Adds a Start menu entry, an "Update blocklists" entry and an optional desktop shortcut, and registers an uninstaller in Settings → Apps.
 Tick **Partner edition** to install the partner edition (it writes `deployment.json` next to `PRISM.exe`).
 The installer also registers PRISM as a web browser. To make it your default, tick **Make PRISM my default browser** on the last page, or go to Settings → Apps → Default apps → PRISM → **Set default**. Links from other apps then open as tabs in the PRISM window that is already open (`instance.py`), and starting PRISM again only brings that window to the front.
 Silent install: `PRISM-Setup-<version>.exe /VERYSILENT /CURRENTUSER /TASKS="partner"`.
@@ -126,9 +127,27 @@ When PRISM opens, a terminal boots it in over the window for about four seconds.
 
 Click or press any key to skip it, or press **M** to mute it (remembered). It doesn't play when PRISM is started to open a link or a file. Turn it off with `"intro": false` in `settings.json`, or `PRISM_NO_INTRO=1`; only the sound with `"introSound": false`. Drawn by `intro.py` with plain Qt painting, so it costs nothing once it's gone.
 
+## Privacy Time Machine
+
+Press **rewind** in the toolbar (or `Ctrl Shift H`) and PRISM replays what the current page did, on a timeline you can play, pause, scrub and speed up (¼× to 25×):
+
+- **When tracking started**: the first tracker contact, tracking cookie, cross-site cookie, tracking parameter or fingerprinting probe, to the millisecond, marked on the timeline.
+- **Data collection**: tracker contacts, cookies (tracking or not), cross-site cookies, fingerprinting (canvas, WebGL GPU identity, audio, font probing, battery, device list, client hints, WebRTC), clipboard reads, storage and IndexedDB writes, beacons, third-party scripts watching your keys and mouse, and permission requests, each marked *stopped*, *got through* or *observed*.
+- **External servers**: every host the page contacted, in order, first or third party, tracker or not, and how many requests were stopped; drawn live on a network map.
+- **Scripts**: which ran and which PRISM stopped, with the fingerprinting APIs each one used, plus the page's inline scripts.
+- **Protections**: which protection stopped what (tracker blocklist, malware shield, your block list, script rules, sandbox, cookie wall, link cleaner, permission guard), plus Do Not Track / GPC, encrypted DNS and the shield.
+- **Event stream**: the raw tape, line by line.
+
+Every tab records its last 8 pages; pick an earlier one under **tape**. **re-record** reloads the page and records it from the start, **export** saves the recording as JSON.
+
+The recording is **metadata only**: hosts, resource types, timings, block reasons, and cookie and storage *names*. Never page content, form input, cookie or storage values, request bodies or query strings (page addresses are kept as origin only, scripts as host + file name; **record full URLs** keeps whole addresses, off by default). It lives in memory only: closing the tab drops it and Purge wipes it.
+Fingerprinting probes are seen by a small watcher in each page (`timemachine.py`): it only reports that an API was used and by which script host, and wrapped functions look exactly like the originals to the page, so it doesn't make you stand out. Switch it off with **watch fingerprinting APIs**.
+
 ## Downloads and files
 
 When a download starts, PRISM asks where to save it in its own popup: rename the file, pick a folder (your default folder, Downloads, Desktop, Documents or one you used recently) or **Browse…** for any folder with the usual system picker. A name that's already taken gets `(1)`, `(2)`, ... instead of overwriting. At the bottom of the popup, **Next time** switches to the standard system Save As dialog, or to saving straight into the default folder without asking. The same choice, the default folder and this session's downloads (progress, Open, Show in folder, Cancel) are in the panel's Downloads section (`Ctrl J`). Sandbox tabs can't download.
+
+The **downloads button** in the toolbar shows a progress ring while files download (a badge counts them when there are several) and flashes a check mark when one is done. Click it for the downloads flyout: live progress, size, speed and time left, with Open, Show in folder and Cancel.
 
 PRISM opens PDFs in its built-in viewer, and shows HTML pages (also saved `.mhtml`), images, SVG, text, JSON and XML files. Open them with `Ctrl O`, **Open file…** in the Downloads section, or from Windows: the installer adds PRISM to **Open with** for these files, and in Settings → Apps → Default apps → PRISM you can make it the default for PDFs too.
 
@@ -207,6 +226,7 @@ Statistics are kept across restarts in `stats.json` (saved every 30 seconds and 
 | `Ctrl F` | Find in page |
 | `Ctrl O` | Open a file (PDF, HTML, image, text) |
 | `Ctrl J` | Downloads |
+| `Ctrl Shift H` | Privacy Time Machine (`Space` play/pause, `←/→` step, `R` rewind and replay, `Esc` back) |
 | `Ctrl + / - / 0` | Zoom |
 | `F12` / `Ctrl Shift I` | DevTools (docked) |
 | `Ctrl B` | PRISM panel |
@@ -241,7 +261,8 @@ edition.py             full / partner edition (deployment.json)
 updates.py             update and Chromium security check
 intro.py               boot intro (terminal animation at start)
 sounds.py              intro sound effects, synthesized into WAVs on first use
-downloads.py           where downloads go: the save popup, the session's download list
+downloads.py           where downloads go: the save popup, the session's download list, the toolbar flyout
+timemachine.py         Privacy Time Machine: per-tab recordings, fingerprinting watcher, its view's backend
 version.py             PRISM version (bump for every release)
 panel.py               backend for the PRISM panel (all panel actions and data)
 designai.py            AI design review: page measurements, screenshot, Claude API call
@@ -257,7 +278,8 @@ stats.py               dashboard statistics (counters saved to stats.json)
 update_blocklists.py   downloads ad/tracker lists + malware/phishing/cryptominer lists
 blocklists/            builtin.txt, cosmetic.css, security/, downloaded/ (git-ignored)
 ui/                    chrome.* (toolbar), newtab.* (dashboard), panel.* (PRISM panel),
-                       inspector.js (design inspector), warning.html, theme.css, logo.svg
+                       timemachine.* (Privacy Time Machine), inspector.js (design inspector),
+                       warning.html, theme.css, logo.svg
 assets/                app icon (icon.svg -> icon.png -> icon.ico)
 packaging/             installers: prism.spec (PyInstaller), build_windows.bat + windows/prism.iss
                        (Inno Setup), make_installer_art.py, build_linux.sh + linux/ (self-extracting installer), make_icon.py
@@ -271,7 +293,7 @@ It can use hosts format, `||domain^`, or plain domains. `@@||domain^` allows a d
 Browsing data (history, cookies, cache, site storage) is never written to disk.
 Only what you set up yourself, plus dashboard counters, is saved in `%APPDATA%\Synterra\PRISM` (on Linux `~/.local/share/Synterra/PRISM`, readable only by you):
 
-- `settings.json`: permission defaults and site exceptions, per-site script rules, your block list, encrypted DNS, terminal and download settings (save mode, default and recent folders).
+- `settings.json`: permission defaults and site exceptions, per-site script rules, your block list, encrypted DNS, terminal and download settings (save mode, default and recent folders), and the Time Machine's two switches. Its recordings are never saved.
 - `sounds/`: the intro's sound effects, generated on first start.
 - `bookmarks.json`: dev bookmarks.
 - `vault.prism`: the password vault, encrypted.

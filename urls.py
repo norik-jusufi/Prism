@@ -15,6 +15,7 @@ NEWTAB_URL = QUrl.fromLocalFile(str(UI / "newtab.html"))
 CHROME_URL = QUrl.fromLocalFile(str(UI / "chrome.html"))
 PANEL_URL = QUrl.fromLocalFile(str(UI / "panel.html"))
 WARNING_URL = QUrl.fromLocalFile(str(UI / "warning.html"))
+TIMEMACHINE_URL = QUrl.fromLocalFile(str(UI / "timemachine.html"))
 ICON = ROOT / "assets" / "icon.png"
 
 SEARCH_NAME = "LibreSearch"

@@ -168,6 +168,14 @@ class Blocklist:
         return len(self.block)
 
 
+def tracking_params(url: QUrl) -> list[str]:
+    """Names of the tracking parameters in `url` (what strip_tracking removes)."""
+    if not url.hasQuery():
+        return []
+    names = [p.split("=", 1)[0] for p in url.query(QUrl.ComponentFormattingOption.FullyEncoded).split("&") if p]
+    return [n for n in names if n.lower() in TRACKING_PARAMS or n.lower().startswith("utm_")]
+
+
 def strip_tracking(url: QUrl) -> QUrl | None:
     """Return a copy of `url` without tracking parameters, or None if clean."""
     if not url.hasQuery():

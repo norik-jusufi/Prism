@@ -14,7 +14,7 @@ import time
 from collections import deque
 from urllib.parse import urlencode
 
-from PyQt6.QtCore import QFile, QIODevice, Qt, QTimer, QUrl
+from PyQt6.QtCore import QFile, QIODevice, QPoint, QRect, Qt, QTimer, QUrl
 from PyQt6.QtGui import QCursor, QIcon, QKeySequence, QShortcut
 from PyQt6.QtWebChannel import QWebChannel
 from PyQt6.QtWebEngineCore import QWebEnginePage, QWebEngineProfile, QWebEngineScript, QWebEngineSettings
@@ -30,13 +30,14 @@ from downloads import Downloads
 from edition import EDITION, enabled
 from siteintel import HeaderFetcher, site_of, trust_score
 from stats import SAVE_EVERY as STATS_SAVE_EVERY
+from timemachine import TimeMachine, TimeMachineBridge, probe_script
 from storage import PERMISSION_TYPES, DevBookmarks, Settings
 from tabs import APP_WORLD, Tab
 from theme import APP_QSS, BG_DARK, BG_LIGHT, dot_icon, icon_to_data_url, set_dark_titlebar
 from updates import UpdateChecker
 from urls import (
     CHROME_URL, FALLBACK_NAME, ICON, LIBRE_ERROR_JS, LIBRE_RETRY_SECONDS, NEWTAB_URL, PANEL_URL, SEARCH_NAME,
-    WARNING_URL, fallback_url, is_libre_search, is_local_ui, is_newtab, query_of, resolve_input,
+    TIMEMACHINE_URL, WARNING_URL, fallback_url, is_libre_search, is_local_ui, is_newtab, query_of, resolve_input,
     search_url,
 )
 from workspace import DEVICES, MAX_PANES, Pane
@@ -82,6 +83,8 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
         self.design = DesignAssistant(self)
         self.api = ApiTester(self)
         self.downloads = Downloads(self)
+        self.downloads.progress.connect(self.push_state)
+        self.timemachine = TimeMachine(self)
         self.headers = HeaderFetcher(USER_AGENT, self)
         self.headers.done.connect(self.on_headers)
         self.updates = UpdateChecker(self)
@@ -141,12 +144,27 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
         self.design.changed.connect(lambda: self.panel.push_section("design"))
         self.downloads.changed.connect(lambda: self.panel.push_section("downloads", force=False))
 
+        # --- Privacy Time Machine: takes the place of the workspace while open
+        self.tm_view = QWebEngineView()
+        tm_page = QWebEnginePage(chrome_profile, self.tm_view)
+        tm_page.setBackgroundColor(BG_DARK)
+        self.tm_view.setPage(tm_page)
+        self.tm_view.setContextMenuPolicy(Qt.ContextMenuPolicy.NoContextMenu)
+        self._inject_webchannel_js(tm_page)
+        self.tm_bridge = TimeMachineBridge(self, self.timemachine)
+        self.tm_channel = QWebChannel(tm_page)
+        self.tm_channel.registerObject("tm", self.tm_bridge)
+        tm_page.setWebChannel(self.tm_channel)
+        self.tm_view.hide()
+        self._tm_loaded = False
+
         central = QWidget()
         lay = QVBoxLayout(central)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(0)
         lay.addWidget(self.chrome)
         lay.addWidget(self.hsplit, 1)
+        lay.addWidget(self.tm_view, 1)
         self.setCentralWidget(central)
 
         self._state_timer = QTimer(self, singleShot=True, interval=40)
@@ -207,6 +225,7 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
         sc("Ctrl+Shift+S", lambda: self.toggle_panel("site", force=True))
         sc("Ctrl+Shift+D", lambda: self.toggle_panel("design", force=True))
         sc("Ctrl+J", lambda: self.toggle_panel("downloads"))
+        sc("Ctrl+Shift+H", lambda: self.toggle_time_machine())
         sc("Ctrl+O", self.open_files)
         sc("F11", self.toggle_fullscreen)
         sc(["Ctrl+=", "Ctrl++"], lambda: self.zoom(+0.1))
@@ -377,6 +396,7 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
         if self.dev and self.dev.view.page().inspectedPage() is tab.page:
             self.dev.view.page().setInspectedPage(None)
         tab.view.deleteLater()
+        self.timemachine.drop(tab.id)
         self.drop_container_if_empty(tab.container)
         self.refresh_panes()
         self.push_state()
@@ -408,6 +428,8 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
         self.push_state()
 
     def on_active_changed(self):
+        if self.tm_view.isVisible():
+            self.tm_bridge.refresh()
         if self.dev and self.dev.isVisible():
             self.dev.view.page().setInspectedPage(self.active.page)
             self.dev.label.setText(f"DevTools · {self.active.title()}")
@@ -426,6 +448,7 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
             self.switch_tab(self.tabs[i].id)
 
     def navigate(self, text: str):
+        self.toggle_time_machine(False)
         tab = self.current()
         tab.view.setUrl(resolve_input(text, self.search_for))
         tab.view.setFocus()
@@ -571,6 +594,7 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
                 continue
             if site_of(t.url.host()) == fsite or site_of(QUrl(t.pending_url).host()) == fsite:
                 t.log.add(url, host, rtype, first_party or host, blocked=reason)
+                self.timemachine.request(t, url, host, rtype, blocked=reason)
                 self.mark_dirty(t)
         self.push_state()
 
@@ -594,8 +618,12 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
         if tab.container.kind == "sandbox" or ptype not in PERMISSION_TYPES:
             perm.deny()
             self.engine.stats.perms_denied += 1
+            self.timemachine.add(tab, {"k": "perm", "h": origin.host().lower(), "d": ptype, "r": "blocked"})
             return
         policy = self.settings.permission_policy(site, ptype)
+        label = PERMISSION_TYPES[ptype][0]
+        self.timemachine.add(tab, {"k": "perm", "h": origin.host().lower(), "d": label,
+                                   "r": {"allow": "allowed", "block": "blocked"}.get(policy, "asked")})
         if policy == "allow":
             perm.grant()
             return
@@ -625,6 +653,8 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
                 else:
                     perm.deny()
                     self.engine.stats.perms_denied += 1
+                self.timemachine.add(t, {"k": "perm", "h": p["site"], "d": p["label"],
+                                         "r": "allowed" if allow else "blocked"})
                 if remember:
                     self.settings.set_site_permission(p["site"], p["type"], "allow" if allow else "block")
                 self.push_state()
@@ -674,10 +704,18 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
         if is_newtab(url):
             tab._dash_last = None      # fresh page: send everything
             self.push_dashboard(tab)
-        if ok and url.scheme() in ("http", "https"):
-            self.headers.fetch(url.toString(QUrl.UrlFormattingOption.RemoveFragment))
+        if url.scheme() in ("http", "https"):
+            self.timemachine.loaded(tab, ok)
+            if ok:
+                self.headers.fetch(url.toString(QUrl.UrlFormattingOption.RemoveFragment))
+                tab.page.runJavaScript("document.querySelectorAll('script:not([src])').length", APP_WORLD,
+                                       lambda n, tab=tab: self._inline_scripts(tab, n))
         self.mark_dirty(tab)
         self.push_state()
+
+    def _inline_scripts(self, tab: Tab, n):
+        if tab in self.tabs and isinstance(n, (int, float)) and n > 0:
+            self.timemachine.add(tab, {"k": "inline", "d": int(n)})
 
     def on_headers(self, url: str, result: dict):
         for t in self.tabs:
@@ -836,6 +874,8 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
             "inspector": t.inspector,
             "devtools": bool(self.dev and self.dev.isVisible()),
             "dns": self.settings["dns"]["mode"] if self.doh else "off",
+            "timeMachine": self.tm_view.isVisible(),
+            "downloads": self.downloads.badge(),
         }
         self.dirty.discard(t.id)
         self.bridge.stateChanged.emit(json.dumps(state))
@@ -895,6 +935,7 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
                 self.drop_container_if_empty(c)
         self.engine.counts.clear()
         self.engine.stats.wipe()
+        self.timemachine.clear()
         self.engine.site_allow.clear()
         self.engine.malware_allow.clear()
         self.headers.cache.clear()
@@ -905,6 +946,7 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
                                + (f" (saved logins kept in {', '.join(kept)})" if kept else ""))
 
     def toggle_panel(self, section: str | None, force: bool = False, focus: bool = False):
+        self.toggle_time_machine(False)
         visible = self.panel_view.isVisible()
         if visible and not force and (section is None or section == self.panel.section):
             self.panel_view.hide()
@@ -922,6 +964,44 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
             if focus:
                 self.panel_view.setFocus()
         self.push_state()
+
+    def toggle_time_machine(self, on: bool | None = None):
+        """Ctrl+Shift+H: rewind what the current page did (see timemachine.py)."""
+        on = not self.tm_view.isVisible() if on is None else on
+        if on == self.tm_view.isVisible():
+            return
+        if on:
+            if not self._tm_loaded:
+                self._tm_loaded = True
+                self.tm_view.setUrl(TIMEMACHINE_URL)
+            self.hsplit.hide()
+            self.tm_view.show()
+            self.tm_view.setFocus()
+            self.tm_bridge.start()
+        else:
+            self.tm_bridge.stop()
+            self.tm_view.hide()
+            self.hsplit.show()
+            if self.current():
+                self.current().view.setFocus()
+        self.push_state()
+
+    def install_probes(self):
+        """(Re)install the Time Machine's fingerprinting watcher in every container."""
+        for c in self.containers.values():
+            self.install_probe(c)
+
+    def install_probe(self, c: Container):
+        scripts = c.profile.scripts()
+        for old in scripts.find("prism-timemachine"):
+            scripts.remove(old)
+        if self.timemachine.conf.get("probes", True):
+            scripts.insert(probe_script(self.timemachine.token))
+
+    def downloads_menu(self, x: int, y: int, w: int, h: int):
+        """The toolbar's downloads button: the flyout with live progress."""
+        top_left = self.chrome.mapToGlobal(QPoint(x, y))
+        self.downloads.show_flyout(QRect(top_left.x(), top_left.y(), w, h))
 
     def zoom(self, delta: float):
         t = self.current()
@@ -993,6 +1073,9 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
             download.cancel()
             self.bridge.toast.emit("Downloads are blocked in the sandbox")
             return
+        tab = next((t for t in self.tabs if t.page is download.page()), None)
+        if tab is not None:
+            self.timemachine.download(tab, download.url().host().lower(), download.downloadFileName())
         self.downloads.handle(download)
 
     # local files
