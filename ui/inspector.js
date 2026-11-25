@@ -298,7 +298,7 @@
       else if (hovered && hovered.parentElement) hovered = hovered.parentElement;
       render();
     }
-    if ((e.key === "c" || e.key === "C") && pinned && !e.ctrlKey) { e.preventDefault(); copy(cssText(pinned)); }
+    if ((e.key === "c" || e.key === "C") && pinned && !e.ctrlKey && !e.metaKey) { e.preventDefault(); copy(cssText(pinned)); }
   }
   const onScroll = () => render();
 

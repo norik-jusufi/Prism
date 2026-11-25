@@ -11,6 +11,19 @@ Search runs through **[SearXNG](https://docs.searxng.org)**, open-source metasea
 
 ## Run
 
+PRISM runs on **Windows 10/11**, **macOS 13 Ventura or later** (Apple silicon and Intel) and the popular **Linux** distributions (x86_64, glibc 2.34+): Ubuntu 22.04+, Debian 12+, Linux Mint 21+, Pop!_OS, elementary OS, Zorin OS, Fedora, RHEL / Rocky / AlmaLinux 9+, openSUSE Tumbleweed / Leap 16, and Arch / Manjaro / EndeavourOS. `.github/workflows/installers.yml` builds the Linux and macOS installers for every release tag and checks that they install and start on Ubuntu 22.04 and 24.04, Debian 12, Fedora, Rocky Linux 9, openSUSE Tumbleweed, Arch and macOS.
+
+**Linux and macOS**, from this checkout:
+
+```bash
+./setup.sh                      # system libraries (asks before sudo), .venv, blocklists, app menu entry
+.venv/bin/python prism.py
+```
+
+`setup.sh` recognises the distro from `/etc/os-release` and installs what Qt WebEngine needs with apt, dnf, zypper or pacman (`--no-system` skips that, `-y` doesn't ask). On Ubuntu 23.10+ and its relatives it also offers the AppArmor profile the browser sandbox needs there (see [Linux sandbox](#installers)). On macOS install Python 3.10+ first (python.org or `brew install python`).
+
+**Windows:**
+
 ```bash
 py -m venv .venv
 .venv\Scripts\python -m pip install -r requirements.txt
@@ -20,7 +33,7 @@ py -m venv .venv
 
 To install PRISM like a normal app instead (no Python needed on the machine), see [Installers](#installers).
 
-On Arch Linux, install it as a pacman package (see [Arch Linux package](#installers)), or see [SETUP_ARCH.md](SETUP_ARCH.md) to run it from source (written so Claude Code can do the whole setup for you).
+On Arch Linux you can also install it as a pacman package (see [Arch Linux package](#installers)), or see [SETUP_ARCH.md](SETUP_ARCH.md) to run it from source (written so Claude Code can do the whole setup for you).
 
 ## Editions: full and partner
 
@@ -56,15 +69,15 @@ When Qt WebEngine comes from the system instead of pip (for example Arch's `pyth
 PRISM can be built into a standalone app plus an installer, so people can install it without Python or git.
 The build bundles Python, Qt WebEngine (Chromium), the UI and fresh blocklists; it is built with PyInstaller as a folder app (`dist/PRISM/`) rather than one big .exe, because a one-file build would unpack ~600 MB to a temp folder on every start.
 
-| | Windows | Linux |
-|---|---|---|
-| Build on | a Windows PC (PyInstaller can't cross-compile) | a Linux PC of the target architecture |
-| Needs | Python 3.14 x64 with the `py` launcher, [Inno Setup 6.7+](https://jrsoftware.org/isdl.php) (`winget install JRSoftware.InnoSetup`) | Python 3.14 |
-| Command | `packaging\build_windows.bat` | `packaging/build_linux.sh` |
-| Executable | `dist\PRISM\PRISM.exe` | `dist/PRISM/PRISM` |
-| Installer | `dist\PRISM-Setup-<version>.exe` | `dist/PRISM-<version>-linux-x86_64-setup.run` |
+| | Windows | Linux | macOS |
+|---|---|---|---|
+| Build on | a Windows PC (PyInstaller can't cross-compile) | a Linux PC of the target architecture | a Mac of the target architecture (arm64 / x86_64) |
+| Needs | Python 3.14 x64 with the `py` launcher, [Inno Setup 6.7+](https://jrsoftware.org/isdl.php) (`winget install JRSoftware.InnoSetup`) | Python 3.14; for the .rpm also `rpmbuild` | Python 3.14 (python.org or Homebrew), Xcode command line tools |
+| Command | `packaging\build_windows.bat` | `packaging/build_linux.sh` | `packaging/build_macos.sh` |
+| Executable | `dist\PRISM\PRISM.exe` | `dist/PRISM/PRISM` | `dist/PRISM.app` |
+| Installer | `dist\PRISM-Setup-<version>.exe` | `dist/PRISM-<version>-linux-x86_64-setup.run` (any distro), `dist/prism_<version>-1_amd64.deb`, `dist/prism-<version>-1.x86_64.rpm` | `dist/PRISM-<version>-macos-<arch>.dmg` |
 
-Both scripts make their own build environment in `build/venv` (pinned in `requirements.txt` and `packaging/requirements-build.txt`) and download fresh blocklists first (`SKIP_BLOCKLISTS=1` skips that).
+All three scripts make their own build environment in `build/venv` (pinned in `requirements.txt` and `packaging/requirements-build.txt`) and download fresh blocklists first (`SKIP_BLOCKLISTS=1` skips that).
 
 **Windows installer.** Not the stock wizard: PRISM's own borderless setup window with rounded corners (native on Windows 11), a side rail with the logo and a live step list, typed headlines, pages that slide in, pill buttons and a glowing progress bar. Built on Inno Setup's pages and logic ([Code] in `packaging/windows/prism.iss`; rail artwork drawn at build time by `packaging/make_installer_art.py`), so updates, silent installs and `/TASKS` work as before. Choose "for me only" (no admin rights, `%LOCALAPPDATA%\Programs\PRISM`) or "for all users" (Program Files). Adds a Start menu entry, an "Update blocklists" entry and an optional desktop shortcut, and registers an uninstaller in Settings → Apps.
 Tick **Partner edition** to install the partner edition (it writes `deployment.json` next to `PRISM.exe`).
@@ -73,6 +86,21 @@ Silent install: `PRISM-Setup-<version>.exe /VERYSILENT /CURRENTUSER /TASKS="part
 
 **Linux installer.** `sh PRISM-<version>-linux-x86_64-setup.run`. As a normal user it installs to `~/.local/opt/prism` with a `prism` command in `~/.local/bin` and an app menu entry; with `sudo` it installs for everyone in `/opt/prism`. Options: `--partner`, `--employee`, `--prefix DIR`, `--no-menu`, `-y`, `--help`.
 Uninstall with `~/.local/opt/prism/uninstall.sh` (`--purge` also deletes your PRISM data).
+Default browser: `xdg-settings set default-web-browser prism.desktop`.
+
+**Debian / Ubuntu / Mint (.deb) and Fedora / RHEL / openSUSE (.rpm).** Native packages of the same app, made by `packaging/linux/make_packages.sh` (called by `build_linux.sh`; `PACKAGES="deb"` makes only one, `PACKAGES=""` none):
+
+```bash
+sudo apt install ./prism_<version>-1_amd64.deb         # Debian, Ubuntu, Linux Mint, Pop!_OS, elementary, Zorin
+sudo dnf install ./prism-<version>-1.x86_64.rpm        # Fedora; RHEL, Rocky, AlmaLinux after: sudo dnf install epel-release
+sudo zypper install ./prism-<version>-1.x86_64.rpm     # openSUSE
+```
+
+They install PRISM to `/opt/prism`, the `prism` command, an app menu entry registered as a web browser, and pull in the system libraries Qt WebEngine needs. Partner edition: `echo '{"edition": "partner"}' | sudo tee /opt/prism/deployment.json`. Remove with `sudo apt remove prism` / `sudo dnf remove prism` (your data in `~/.local/share/Synterra/PRISM` stays).
+
+**Linux sandbox (Ubuntu 23.10+).** Ubuntu and the distros built on it (Mint 22, Pop!_OS 24.04, Zorin 18, elementary 8, ...) let only programs with an AppArmor profile create the user namespaces Chromium's sandbox needs; without one PRISM stops with "No usable sandbox". `packaging/linux/apparmor.sh` writes a profile that allows exactly that for PRISM and its `QtWebEngineProcess`, like the one Google Chrome ships. The .deb installs it, the .run installer does when run with `sudo` (otherwise it prints the one command to run), and `setup.sh` offers it. Never turn the sandbox off with `QTWEBENGINE_DISABLE_SANDBOX=1` instead.
+
+**macOS app.** Open the .dmg and drag PRISM onto Applications. `PRISM.app` is registered as a web browser (http/https links, HTML and PDF files): pick it in System Settings → Desktop & Dock → **Default web browser**, and links from other apps open as tabs in the open window. Without `SIGN_IDENTITY` the build is signed ad hoc, which runs on the Mac that built it; on other Macs open it the first time with right-click → Open (or sign with a Developer ID and notarize: `SIGN_IDENTITY=... NOTARY_PROFILE=... packaging/build_macos.sh`). Partner edition: put `deployment.json` in `PRISM.app/Contents/MacOS/` (before signing). Keyboard shortcuts use ⌘ where this README says Ctrl.
 
 **Arch Linux package (pacman).** `packaging/arch/PKGBUILD` turns the repository into a normal pacman package that runs on Arch's own Python and Qt WebEngine, so `pacman -Syu` brings Chromium security fixes:
 
@@ -93,7 +121,7 @@ Update: `git pull`, then `makepkg -si` again. Remove: `sudo pacman -R prism` (yo
 
 **Releasing.**
 1. Raise `VERSION` in `version.py` (e.g. `1.2.0` or `1.2.0-beta`).
-2. Build: `packaginguild_windows.bat` (and `packaging/build_linux.sh` on Linux).
+2. Build: `packaging\build_windows.bat` (and `packaging/build_linux.sh` on Linux, `packaging/build_macos.sh` on a Mac).
 3. Commit, tag `v<VERSION>` and push: `git tag v1.2.0 && git push origin main --tags`.
 4. Create the GitHub release for that tag (pushing the tag already started the container build, see below) and attach `dist\PRISM-Setup-<VERSION>.exe` under exactly that name: the one-click update looks for it there. Mark `-beta` versions as pre-releases.
 
@@ -117,7 +145,7 @@ Settings, logins and stats stay in the `prism-data` volume; `docker pull` update
 
 Searches go to **[SearXNG](https://docs.searxng.org)**: open-source metasearch that asks several search engines for you and returns their results without ads, tracking or a profile of you.
 SearXNG runs on many independent servers ("instances"). PRISM uses a list of public ones (`SEARXNG_INSTANCES` in `urls.py`, `searx.be` first).
-Public instances are shared and sometimes refuse a search ("Too Many Requests"), or can't be reached. PRISM then skips that instance for 10 minutes and runs the same search on the next one. Browser checks some instances show ("Checking your browser…") pass by themselves.
+Public instances are shared and sometimes refuse a search ("Too Many Requests"), or can't be reached. PRISM then skips that instance for 10 minutes and runs the same search on the next one. Browser checks some instances show ("Checking your browser…") usually pass by themselves; when one fails ("Automated verification failed") or is still spinning after 20 seconds, PRISM treats that instance as refusing and moves on.
 
 **Your own instance** is the most private option and is never busy: set it in Panel → Network → Search (for example `https://search.example.org`, or `http://localhost:8080` for one running on your PC; see the [SearXNG install guide](https://docs.searxng.org/admin/installation.html)). It goes first; untick **Use public instances when mine is unreachable** to never search anywhere else.
 The dashboard footer shows the instance in use and how many are busy.
@@ -173,7 +201,7 @@ Statistics are kept across restarts in `stats.json` (saved every 30 seconds and 
 | **Design inspector** | `Ctrl Shift C`. Hover any element: box model overlay (margin, border, padding), font, size, line height, colors as hex, WCAG contrast ratio, spacing, layout. Click to pin, hold `Alt` to measure the gap to another element, `↑` selects the parent, `C` copies the CSS, `Esc` exits. |
 | **AI design review** | `Ctrl Shift D` or Panel → Design. Claude (Anthropic's hosted API, `claude-opus-5-5`) reviews the current tab for front-end imperfections: layout, spacing, alignment, typography, color and contrast, accessibility, responsiveness, consistency, images. It looks at a screenshot of the visible viewport plus measurements PRISM takes from the page (distinct font sizes and spacing values, WCAG contrast failures, tap targets under 24 px, horizontal overflow, clipped text, distorted or blurry images, skipped heading levels, unlabeled controls). Each issue has a severity, a concrete fix (copyable) and, where it applies, a **Show** button that scrolls to and highlights the element. Add a focus ("the pricing cards") to narrow it; combine with the responsive preview to review mobile layouts. See [Design review and privacy](#design-review-and-privacy). |
 | **API tester** | `Ctrl Shift A`. GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS; query params, headers, body, timeout, redirects. Response status, timing, size, headers and syntax-highlighted JSON. Copy as cURL, save as a bookmark. Requests go out from Python, so there are no CORS limits. |
-| **Terminal** | Full edition. ``Ctrl ` ``. Runs commands in cmd or PowerShell in the folder shown (`cd` changes it, `cls` clears, `Ctrl C` stops). One-click git / npm / pip / python / node commands. Line-based programs only: no vim, less or htop. |
+| **Terminal** | Full edition. ``Ctrl ` ``. Runs commands in cmd or PowerShell (Windows) or your login shell: bash, zsh, fish (Linux, macOS), in the folder shown (`cd` changes it, `cls` / `clear` clears, `Ctrl C` stops). One-click git / npm / pip / python / node commands. Line-based programs only: no vim, less or htop. |
 | **Source explorer** | Panel → Source. Page HTML with highlighting and search, metadata (meta tags, links, forms, iframes, counts), response headers with a security-header checklist and TLS details, and every loaded resource. |
 | **Tab memory monitor** | Panel → Memory. Memory per tab and per PRISM process, with "Discard" to free a background tab. |
 | **Dev bookmarks** | Panel → Bookmarks. Links, docs, API endpoints (open straight in the API tester), code snippets and notes, with tags and search. |
@@ -212,7 +240,7 @@ Statistics are kept across restarts in `stats.json` (saved every 30 seconds and 
 | Permissions | Nothing is granted without your say: the defaults ask (notifications and local fonts are blocked), sandbox tabs deny everything. |
 | WebRTC | Shows only public interfaces, so your LAN IP does not leak. |
 | WebGL | Disabled: blocks GPU fingerprinting and avoids a Qt 6.12 crash on WebGL pages (e.g. github.com). |
-| Fingerprinting | Sends a generic Chrome user-agent (with the Chromium version PRISM really runs) instead of the unique "QtWebEngine" one. No pop-ups, pings, DNS prefetch or background networking. |
+| Fingerprinting | Sends the generic Chrome user-agent of your OS (Windows, macOS or Linux, with the Chromium version PRISM really runs) instead of the unique "QtWebEngine" one. It never claims a different OS: the platform and client hints Chromium reports would contradict it, and bot checks ("Checking your browser") refuse browsers that look spoofed. No pop-ups, pings, DNS prefetch or background networking. |
 | Local files | An HTML file opened from disk loads its own images, styles, scripts and fonts from its folder (or below it), and nothing else: it can't read other files from script (fetch/XHR blocked for files), can't load files outside its folder, and can't reach the internet. Sandbox tabs never get file access. |
 
 ## Shortcuts

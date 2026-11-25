@@ -37,15 +37,23 @@ SEARXNG_INSTANCES = [
 SEARCH_FLAGS = [("categories", "general"), ("language", "auto"), ("safesearch", "0")]
 INSTANCE_RETRY_SECONDS = 600                    # skip a refusing instance for 10 min
 
-# What a SearXNG instance shows when it refuses a search (its rate limiter,
-# a proxy error). Browser checks ("Checking your browser") are not failures:
-# they pass by themselves. Checked in an isolated JS world so the page can't
-# tamper with the check.
-SEARCH_ERROR_JS = r"""(function () {
+# What a SearXNG instance shows when it refuses a search: its rate limiter,
+# a proxy error, or a bot check that gave up on PRISM. A browser check
+# ("Checking your browser") usually passes by itself, so it only counts once
+# it has failed (go-away's "Automated verification failed", Anubis's "Oh
+# noes!", Cloudflare's "you have been blocked"), or with `stuck` (polled
+# again after SEARCH_STUCK_MS) if it is still spinning. Checked in an
+# isolated JS world so the page can't tamper with the check.
+_SEARCH_CHECK_JS = r"""(function (stuck) {
   if (document.querySelector('article.result')) return false;
   var t = document.body ? document.body.innerText.slice(0, 2000) : "";
-  return /^\s*too many requests|rate limit(ed)? exceeded|^\s*(403 )?forbidden|access denied|^\s*(502 )?bad gateway|^\s*(503 )?service (temporarily )?unavailable/im.test(t);
-})()"""
+  if (/^\s*too many requests|rate limit(ed)? exceeded|^\s*(403 )?forbidden|access denied|^\s*(502 )?bad gateway|^\s*(503 )?service (temporarily )?unavailable/im.test(t)) return true;
+  if (/automated verification failed|verification failed|try the automated checks a second time|^\s*oh noes!|you have been blocked|challenge failed/im.test(t)) return true;
+  return stuck && /checking your browser|verifying (that )?you are (a )?human|making sure you('|’)?re not a bot|just a moment\.\.\./im.test(t);
+})(STUCK)"""
+SEARCH_ERROR_JS = _SEARCH_CHECK_JS.replace("STUCK", "false")
+SEARCH_STUCK_JS = _SEARCH_CHECK_JS.replace("STUCK", "true")
+SEARCH_STUCK_MS = 20_000
 
 # TLDs we treat as "this is a web address" when no scheme is typed. Kept
 # programmer-safe: "os.path.join" or "main.py" should be searched, not visited.

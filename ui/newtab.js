@@ -33,7 +33,7 @@
 
   document.addEventListener("keydown", (e) => {
     const inField = document.activeElement === input;
-    if ((e.ctrlKey && e.key.toLowerCase() === "k") || (e.key === "/" && !inField)) {
+    if (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") || (e.key === "/" && !inField)) {
       e.preventDefault();
       window.focusSearch();
     }

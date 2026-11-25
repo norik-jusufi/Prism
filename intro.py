@@ -90,7 +90,7 @@ def boot_lines(window, blocklist, settings, doh, version: str, edition: str) -> 
 
 def mono(px: float, bold: bool = False) -> QFont:
     f = QFont()
-    f.setFamilies(["Cascadia Mono", "Cascadia Code", "JetBrains Mono", "Consolas", "DejaVu Sans Mono", "monospace"])
+    f.setFamilies(["Cascadia Mono", "Cascadia Code", "JetBrains Mono", "Consolas", "SF Mono", "Menlo", "DejaVu Sans Mono", "monospace"])
     f.setStyleHint(QFont.StyleHint.Monospace)
     f.setPixelSize(max(1, round(px)))
     f.setWeight(QFont.Weight.Bold if bold else QFont.Weight.Normal)

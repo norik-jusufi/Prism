@@ -37,7 +37,7 @@ from theme import APP_QSS, BG_DARK, BG_LIGHT, dot_icon, icon_to_data_url, set_da
 from updates import UpdateChecker
 from urls import (
     CHROME_URL, ICON, INSTANCE_RETRY_SECONDS, NEWTAB_URL, PANEL_URL, SEARCH_ERROR_JS, SEARCH_FLAGS, SEARCH_NAME,
-    SEARXNG_INSTANCES, TIMEMACHINE_URL, WARNING_URL, instance_of, is_local_ui, is_newtab, is_search, query_of,
+    SEARCH_STUCK_JS, SEARCH_STUCK_MS, SEARXNG_INSTANCES, TIMEMACHINE_URL, WARNING_URL, instance_of, is_local_ui, is_newtab, is_search, query_of,
     resolve_input, search_url,
 )
 from workspace import DEVICES, MAX_PANES, Pane
@@ -533,12 +533,17 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
     def is_search_page(self, url: QUrl) -> bool:
         return is_search(url, self.settings["search"].get("instance", ""))
 
-    def check_search(self, tab: Tab):
+    def check_search(self, tab: Tab, stuck: bool = False, expect: QUrl | None = None):
+        """Did this search page get refused? `stuck`: also when it still shows
+        a browser check that should have passed long ago. `expect`: only if
+        the tab is still on that address."""
+        if tab not in self.tabs:
+            return
         url = tab.url
-        if tab not in self.tabs or not self.is_search_page(url):
+        if not self.is_search_page(url) or (expect is not None and url != expect):
             return
         tab.page.runJavaScript(
-            SEARCH_ERROR_JS, APP_WORLD,
+            SEARCH_STUCK_JS if stuck else SEARCH_ERROR_JS, APP_WORLD,
             lambda bad, tab=tab, url=url: self.on_search_checked(tab, url, bool(bad)))
 
     def on_search_checked(self, tab: Tab, url: QUrl, bad: bool):
@@ -708,6 +713,8 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
             # SearXNG can also navigate client-side (no loadFinished), so poll briefly.
             for delay in (1200, 3000, 6000):
                 QTimer.singleShot(delay, lambda tab=tab: self.check_search(tab))
+            # A bot check that never finishes ("Checking your browser" forever) counts as refused.
+            QTimer.singleShot(SEARCH_STUCK_MS, lambda tab=tab, url=url: self.check_search(tab, stuck=True, expect=url))
         self.on_tab_changed(tab)
 
     def on_icon(self, tab: Tab, icon: QIcon):

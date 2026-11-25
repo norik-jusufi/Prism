@@ -713,12 +713,12 @@
 
   /* =========================================================== TERMINAL */
   const termHist = [];
-  let termIdx = -1, termState = { cwd: "", shell: "cmd", running: false };
+  let termIdx = -1, termState = { cwd: "", shell: "", running: false, shells: [] };
   V.terminal = {
     init() {
       view("terminal").innerHTML = `
         <div class="term-bar">
-          <select id="term-shell" data-change="termShell"><option value="cmd">cmd</option><option value="powershell">PowerShell</option></select>
+          <select id="term-shell" data-change="termShell"></select>
           <div class="quick">${["git status", "git log --oneline -15", "git diff --stat", "git branch -a", "npm run", "npm test", "pip list", "python --version", "node --version"].map((c) =>
             `<button class="chip" data-act="termQuick" data-cmd="${esc(c)}">${esc(c)}</button>`).join("")}</div>
           <span class="grow"></span>
@@ -726,7 +726,7 @@
           <button class="btn sm danger" data-act="termKill" id="term-kill" disabled>Stop</button>
         </div>
         <pre class="term-out" id="term-out"><span class="sys">PRISM terminal: each command runs in your shell in the folder shown below.
-cd changes folder, cls clears, Ctrl+C stops a running command, ↑/↓ browse history.
+cd changes folder, cls / clear clears, Ctrl+C stops a running command, ↑/↓ browse history.
 Interactive full-screen programs (vim, less, htop) are not supported.
 </span></pre>
         <div class="term-in"><span class="cwd" id="term-cwd" title=""></span><span class="ok">&gt;</span>
@@ -785,7 +785,12 @@ Interactive full-screen programs (vim, less, htop) are not supported.
     if (!$("#term-cwd")) return;
     $("#term-cwd").textContent = s.cwd;
     $("#term-cwd").title = s.cwd;
-    $("#term-shell").value = s.shell;
+    const sel = $("#term-shell"), shells = s.shells || [];
+    if (sel.dataset.list !== JSON.stringify(shells)) {     // the OS's shells: cmd/PowerShell, or bash/zsh/...
+      sel.dataset.list = JSON.stringify(shells);
+      sel.innerHTML = shells.map(([v, label]) => `<option value="${esc(v)}">${esc(label)}</option>`).join("");
+    }
+    sel.value = s.shell;
     $("#term-kill").disabled = !s.running;
     $("#term-run").textContent = s.running ? `running: ${s.command.slice(0, 40)}` : "";
     $("#term-input").placeholder = s.running ? "input for the running program" : "git status";

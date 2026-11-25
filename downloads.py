@@ -98,32 +98,32 @@ def open_folder(folder: Path) -> None:
 # ----------------------------------------------------------------- popup
 DIALOG_QSS = """
 #card { background:#07110c; border:1px solid #1f5537; border-radius:10px; }
-QLabel { color:#a9c9b5; font-family:'Cascadia Code','Consolas',monospace; font-size:12px; }
+QLabel { color:#a9c9b5; font-family:'Cascadia Code','Consolas','SF Mono','Menlo','DejaVu Sans Mono',monospace; font-size:12px; }
 #kicker { color:#36f59b; font-size:11px; letter-spacing:1px; }
 #title { color:#e8f5ec; font-size:15px; font-weight:bold; }
 #meta, #section, #hint { color:#5f8270; font-size:11px; }
 #section { letter-spacing:1px; padding-top:6px; }
 #path { color:#5f8270; font-size:11px; }
 QLineEdit { background:#040a07; color:#e8f5ec; border:1px solid #1f5537; border-radius:6px; padding:8px 10px;
-            font-family:'Cascadia Code','Consolas',monospace; font-size:13px; selection-background-color:#1fa866; }
+            font-family:'Cascadia Code','Consolas','SF Mono','Menlo','DejaVu Sans Mono',monospace; font-size:13px; selection-background-color:#1fa866; }
 QLineEdit:focus { border-color:#36f59b; }
 QListWidget { background:transparent; border:none; outline:none; }
 QListWidget::item { border:1px solid #163826; border-radius:6px; margin:2px 0; padding:0; }
 QListWidget::item:hover { background:#0b1a12; border-color:#1f5537; }
 QListWidget::item:selected { background:#0f2a1c; border-color:#36f59b; }
 QPushButton { background:#0b1a12; color:#d6f5e2; border:1px solid #1f5537; border-radius:6px; padding:8px 16px;
-              font-family:'Cascadia Code','Consolas',monospace; font-size:12px; }
+              font-family:'Cascadia Code','Consolas','SF Mono','Menlo','DejaVu Sans Mono',monospace; font-size:12px; }
 QPushButton:hover { border-color:#36f59b; color:#36f59b; }
 QPushButton:focus { border-color:#36f59b; }
 #primary { background:#36f59b; color:#04120a; border-color:#36f59b; font-weight:bold; }
 #primary:hover { background:#74ff7a; color:#04120a; }
 #close { background:transparent; border:none; color:#5f8270; font-size:15px; padding:2px 8px; }
 #close:hover { color:#36f59b; }
-QCheckBox { color:#a9c9b5; font-family:'Cascadia Code','Consolas',monospace; font-size:11px; spacing:8px; }
+QCheckBox { color:#a9c9b5; font-family:'Cascadia Code','Consolas','SF Mono','Menlo','DejaVu Sans Mono',monospace; font-size:11px; spacing:8px; }
 QCheckBox::indicator { width:14px; height:14px; border:1px solid #1f5537; border-radius:3px; background:#040a07; }
 QCheckBox::indicator:checked { background:#36f59b; border-color:#36f59b; }
 QComboBox { background:#040a07; color:#d6f5e2; border:1px solid #1f5537; border-radius:6px; padding:5px 10px;
-            font-family:'Cascadia Code','Consolas',monospace; font-size:11px; }
+            font-family:'Cascadia Code','Consolas','SF Mono','Menlo','DejaVu Sans Mono',monospace; font-size:11px; }
 QComboBox:hover { border-color:#36f59b; }
 QComboBox QAbstractItemView { background:#07110c; color:#d6f5e2; border:1px solid #1f5537;
                               selection-background-color:#0f2a1c; selection-color:#36f59b; }

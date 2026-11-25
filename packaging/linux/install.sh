@@ -123,10 +123,11 @@ Type=Application
 Name=PRISM
 GenericName=Web Browser
 Comment=Privacy-first research browser
-Exec="$APPDIR/PRISM"
+Exec="$APPDIR/PRISM" %U
 Icon=prism
 Terminal=false
 Categories=Network;WebBrowser;
+MimeType=text/html;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;application/pdf;image/svg+xml;
 StartupWMClass=prism
 StartupNotify=true
 Actions=UpdateBlocklists;
@@ -139,8 +140,25 @@ DESKTOP_ENTRY
   command -v gtk-update-icon-cache >/dev/null 2>&1 && gtk-update-icon-cache -q -t "$SHARE/icons/hicolor" 2>/dev/null || true
 fi
 
+# Ubuntu 23.10+ and its relatives: Qt WebEngine's sandbox needs an AppArmor
+# profile (see apparmor.sh). Root writes it; a user install says how.
+HELPER=_internal/PyQt6/Qt6/libexec/QtWebEngineProcess
+cp "$SRC/apparmor.sh" "$APPDIR/apparmor.sh"
+APPARMOR=""
+if sh "$APPDIR/apparmor.sh" needed; then
+  if [ "$(id -u)" -eq 0 ] && command -v apparmor_parser >/dev/null 2>&1; then
+    sh "$APPDIR/apparmor.sh" install "$APPDIR/PRISM" "$APPDIR/$HELPER" && APPARMOR=1
+  else
+    echo
+    echo "This system only lets programs with an AppArmor profile use the browser sandbox."
+    echo "Allow PRISM once (needs your password):"
+    echo "  sudo sh '$APPDIR/apparmor.sh' install '$APPDIR/PRISM' '$APPDIR/$HELPER'"
+  fi
+fi
+
 {
   echo "version=$VERSION"
+  [ -n "$APPARMOR" ] && echo "apparmor=1"
   echo "installed=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   if [ "$MENU" = 1 ]; then
     echo "launcher=$LAUNCHER"
@@ -173,6 +191,10 @@ if [ -n "$DESKTOP" ] && [ -f "$DESKTOP" ] && grep -q "$APPDIR/PRISM" "$DESKTOP";
 [ -n "$ICON" ] && rm -f "$ICON"
 if [ -n "$DESKTOP" ]; then
   command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database -q "$(dirname "$DESKTOP")" 2>/dev/null || true
+fi
+if [ -f /etc/apparmor.d/prism ] && grep -q "$APPDIR/PRISM" /etc/apparmor.d/prism; then
+  if [ "$(id -u)" -eq 0 ]; then sh "$APPDIR/apparmor.sh" remove
+  else echo "Also remove PRISM's AppArmor profile: sudo rm /etc/apparmor.d/prism"; fi
 fi
 rm -rf "$APPDIR"
 if [ "$PURGE" = 1 ] && [ -d "$DATA" ]; then rm -rf "$DATA"; echo "Deleted $DATA"; fi

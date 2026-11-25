@@ -15,7 +15,7 @@
   --muted:     #5f8270;
   --danger:    #ff5f6d;
   --warn:      #ffc65c;
-  --mono: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", "Fira Code", Consolas, "Courier New", monospace;
+  --mono: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", "Fira Code", Consolas, "SF Mono", Menlo, "DejaVu Sans Mono", "Courier New", monospace;
   color-scheme: dark;
 }
 

@@ -139,6 +139,14 @@ def main() -> int:
         QSurfaceFormat.setDefaultFormat(fmt)
 
     app = QApplication(sys.argv)
+    apple_events = None
+    if sys.platform == "darwin":
+        # Links from other apps arrive as Apple events, not on the command line.
+        apple_events = instance.AppleEvents(app)
+        app.installEventFilter(apple_events)
+        app.processEvents()             # the link that launched PRISM, if any
+        LAUNCH_URLS.extend(apple_events.pending)
+        apple_events.pending.clear()
     app.setWindowIcon(QIcon(str(ICON)))
     app.setDesktopFileName("prism")     # Linux: matches prism.desktop, so docks show PRISM's icon
 
@@ -158,6 +166,9 @@ def main() -> int:
         win.open_external(LAUNCH_URLS, replace_current=True)
     listener = instance.Listener(app)
     listener.opened.connect(win.open_external)
+    if apple_events is not None:
+        apple_events.opened.connect(win.open_external)
+        apple_events.flush()
     win.show()
     # Terminal boot animation that fades into the browser. Not when PRISM was
     # started to open a link or a file: then the page is what's wanted, now.

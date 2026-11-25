@@ -6,6 +6,11 @@ If PRISM is already running, the new process hands its links to the running
 one over a local socket (a named pipe on Windows) and exits, so the link
 opens as a tab in the open window instead of starting a second browser on
 the same profile.
+
+Linux works the same way through prism.desktop (`Exec=prism %U`). macOS
+doesn't put links on the command line: it starts (or wakes) the one PRISM.app
+and sends each link as an Apple event, which Qt turns into a QFileOpenEvent
+on the application (see AppleEvents below).
 """
 
 import getpass
@@ -13,7 +18,7 @@ import hashlib
 import os
 import sys
 
-from PyQt6.QtCore import QObject, QUrl, pyqtSignal
+from PyQt6.QtCore import QEvent, QObject, QUrl, pyqtSignal
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 
 # Only these open from the command line / another process: no javascript:,
@@ -108,3 +113,35 @@ class Listener(QObject):
             if url.isValid() and url.scheme().lower() in SCHEMES:
                 urls.append(url.toString(QUrl.ComponentFormattingOption.FullyEncoded))
         self.opened.emit(urls)
+
+
+class AppleEvents(QObject):
+    """macOS: links and files opened with PRISM from other apps (default
+    browser, "Open With", dropping on the Dock icon). Install on the
+    QApplication; links that arrive before the window exists are kept until
+    `opened` is connected and `flush()` is called."""
+
+    opened = pyqtSignal(list)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.pending: list[str] = []
+        self.ready = False
+
+    def eventFilter(self, obj, event):  # noqa: N802
+        if event.type() == QEvent.Type.FileOpen:
+            url = event.url()
+            if not url.isValid() and event.file():
+                url = QUrl.fromLocalFile(event.file())
+            if url.isValid() and url.scheme().lower() in SCHEMES:
+                self.pending.append(url.toString(QUrl.ComponentFormattingOption.FullyEncoded))
+                if self.ready:
+                    self.flush()
+            return True
+        return super().eventFilter(obj, event)
+
+    def flush(self):
+        self.ready = True
+        urls, self.pending = self.pending, []
+        if urls:
+            self.opened.emit(urls)

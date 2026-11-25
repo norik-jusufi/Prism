@@ -13,6 +13,7 @@ flags.
 from __future__ import annotations
 
 import shutil
+import sys
 from collections import deque
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -41,18 +42,37 @@ TEMP_COLOR = "#c9d6cf"
 SANDBOX_COLOR = "#ff5f6d"
 
 
-def _user_agent() -> str:
+# Chrome's frozen ("reduced") UA platform strings: every Chrome on that OS
+# sends exactly this, whatever the OS version or CPU (Apple silicon Macs
+# still say "Intel Mac OS X 10_15_7", every Linux says "X11; Linux x86_64").
+UA_PLATFORMS = {
+    "win32": "Windows NT 10.0; Win64; x64",
+    "darwin": "Macintosh; Intel Mac OS X 10_15_7",
+    "linux": "X11; Linux x86_64",
+}
+
+
+def _user_agent(platform: str = sys.platform) -> str:
     """A common desktop UA instead of the default one, which says
-    "QtWebEngine" and makes this browser trivially fingerprintable. The
-    Chrome version is the Chromium PRISM really runs: a different one would
-    contradict the Sec-CH-UA client hints Chromium sends anyway."""
+    "QtWebEngine" and makes this browser trivially fingerprintable.
+
+    Everything in it must agree with what Chromium tells pages anyway, or
+    bot checks (Cloudflare, Anubis, go-away, ...) see a spoofed browser and
+    refuse the page ("Automated verification failed"):
+      - the OS is the real one: navigator.platform and the Sec-CH-UA-Platform
+        client hint always report it, so a Windows UA on Linux is a lie
+        they catch;
+      - the Chrome version is the Chromium PRISM really runs, to match the
+        Sec-CH-UA brands."""
     major = "140"
     try:
         from PyQt6.QtWebEngineCore import qWebEngineChromiumVersion
         major = qWebEngineChromiumVersion().split(".")[0] or major
     except ImportError:
         pass
-    return ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    key = "linux" if platform.startswith(("linux", "freebsd", "openbsd")) else platform
+    os_part = UA_PLATFORMS.get(key, UA_PLATFORMS["linux"])
+    return (f"Mozilla/5.0 ({os_part}) AppleWebKit/537.36 "
             f"(KHTML, like Gecko) Chrome/{major}.0.0.0 Safari/537.36")
 
 

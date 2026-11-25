@@ -503,7 +503,7 @@ class PanelBridge(QObject):
         self.w.terminal.interrupt()
 
     def _do_term_shell(self, p):
-        self.w.terminal.set_shell(p.get("shell", "cmd"))
+        self.w.terminal.set_shell(str(p.get("shell", "")))
         self.w.settings["terminal"]["shell"] = self.w.terminal.shell
         self.w.settings.save()
 

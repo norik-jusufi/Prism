@@ -1,7 +1,8 @@
 """PRISM integrated terminal.
 
 A command runner, not a full terminal emulator: each command runs in a
-fresh cmd.exe / PowerShell (or sh on other systems) in the session's working
+fresh cmd.exe / PowerShell (on Linux and macOS: your login shell, bash, zsh
+or sh) in the session's working
 directory, with output streamed back live. `cd`, `cls`/`clear` and
 `exit` are handled here, so the working directory persists between commands.
 Interactive full-screen programs (vim, htop) are not supported; anything
@@ -19,17 +20,38 @@ from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, pyqtSignal
 
 ANSI = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]|\x1b\][^\x07]*\x07")
 WIN = sys.platform == "win32"
+MAC = sys.platform == "darwin"
+
+
+def available_shells() -> list[tuple[str, str]]:
+    """(value, label) of the shells the terminal can run commands in. The
+    first one is the default: cmd on Windows, elsewhere the user's login
+    shell ($SHELL, zsh on macOS), then bash, zsh and sh if installed."""
+    if WIN:
+        return [("cmd", "cmd"), ("powershell", "PowerShell")]
+    shells, seen = [], set()
+    for path in (os.environ.get("SHELL", ""), "/bin/zsh", "/bin/bash", "/usr/bin/fish", "/bin/sh"):
+        if not path or not os.access(path, os.X_OK):
+            continue
+        real = os.path.realpath(path)
+        if real in seen:
+            continue
+        seen.add(real)
+        shells.append((path, os.path.basename(path)))
+    return shells or [("/bin/sh", "sh")]
 
 
 class TerminalSession(QObject):
     output = pyqtSignal(str, str)      # text, stream ("out" | "err" | "sys")
     stateChanged = pyqtSignal(str)     # JSON-able summary handled by panel
 
-    def __init__(self, cwd: str = "", shell: str = "cmd", parent=None) -> None:
+    def __init__(self, cwd: str = "", shell: str = "", parent=None) -> None:
         super().__init__(parent)
         start = Path(cwd).expanduser() if cwd else Path.home()
         self.cwd = str(start if start.is_dir() else Path.home())
-        self.shell = shell if shell in ("cmd", "powershell") else "cmd"
+        self.shells = available_shells()
+        names = [v for v, _ in self.shells]
+        self.shell = shell if shell in names else names[0]   # e.g. "cmd" saved on Windows, opened on Linux
         self.proc: QProcess | None = None
         self.command = ""
 
@@ -40,10 +62,11 @@ class TerminalSession(QObject):
 
     def summary(self) -> dict:
         return {"cwd": self.cwd, "shell": self.shell, "running": self.running,
-                "command": self.command if self.running else ""}
+                "command": self.command if self.running else "",
+                "shells": [list(s) for s in self.shells]}
 
     def set_shell(self, shell: str) -> None:
-        if shell in ("cmd", "powershell"):
+        if shell in [v for v, _ in self.shells]:
             self.shell = shell
             self.stateChanged.emit("shell")
 
@@ -115,7 +138,9 @@ class TerminalSession(QObject):
             proc.setNativeArguments(f'/d /s /c "chcp 65001>nul & {line}"')
             proc.start("cmd.exe", [])
         else:
-            proc.start("/bin/sh", ["-c", line])
+            # macOS starts apps with a bare PATH (no Homebrew, no pyenv): a
+            # login shell reads ~/.zprofile etc., so git, brew, node are found.
+            proc.start(self.shell, (["-l"] if MAC else []) + ["-c", line])
         self.stateChanged.emit("run")
 
     def _read(self, proc: QProcess, stream: str) -> None:

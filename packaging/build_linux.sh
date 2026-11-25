@@ -1,11 +1,14 @@
 #!/usr/bin/env bash
 # Build PRISM for Linux:
 #   dist/PRISM/PRISM                                   the browser executable (folder app)
-#   dist/PRISM-<version>-linux-<arch>-setup.run        the installer (one file)
+#   dist/PRISM-<version>-linux-<arch>-setup.run        the installer (one file, any distro)
+#   dist/prism_<version>_<arch>.deb                    Debian / Ubuntu / Mint package
+#   dist/prism-<version>.<arch>.rpm                    Fedora / RHEL / openSUSE package (needs rpmbuild)
 #
 # Usage:  packaging/build_linux.sh
 #   PYTHON=python3.14      Python to build with (default: python3)
 #   SKIP_BLOCKLISTS=1      don't download fresh blocklists before bundling
+#   PACKAGES="deb rpm"     distro packages to make (PACKAGES="" for none)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -36,6 +39,7 @@ rm -rf "$STAGE"
 mkdir -p "$STAGE"
 cp -a dist/PRISM "$STAGE/PRISM"
 cp packaging/linux/install.sh "$STAGE/install.sh"
+cp packaging/linux/apparmor.sh "$STAGE/apparmor.sh"
 cp assets/icon.png "$STAGE/icon.png"
 chmod +x "$STAGE/install.sh"
 OUT="dist/PRISM-${VERSION}-linux-${ARCH}-setup.run"
@@ -46,7 +50,14 @@ OUT="dist/PRISM-${VERSION}-linux-${ARCH}-setup.run"
 chmod +x "$OUT"
 rm -rf "$STAGE"
 
+if [ -n "${PACKAGES-deb rpm}" ]; then
+  echo "==> Distro packages"
+  # shellcheck disable=SC2086
+  packaging/linux/make_packages.sh ${PACKAGES-deb rpm}
+fi
+
 echo
 echo "Done."
 echo "  executable: dist/PRISM/PRISM"
 echo "  installer:  $OUT ($(du -h "$OUT" | cut -f1))"
+ls dist/*.deb dist/*.rpm 2>/dev/null | sed 's/^/  package:    /' || true

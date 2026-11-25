@@ -60,7 +60,7 @@ def set_dark_titlebar(widget: QWidget):
 # Qt-native widgets (menus, split panes, docks) styled to match the HTML UI.
 APP_QSS = """
 QMenu { background:#07110c; color:#d6f5e2; border:1px solid #1d4a32; padding:4px;
-        font-family:'Cascadia Code','Consolas',monospace; font-size:12px; }
+        font-family:'Cascadia Code','Consolas','SF Mono','Menlo','DejaVu Sans Mono',monospace; font-size:12px; }
 QMenu::item { padding:6px 22px 6px 14px; border-radius:4px; }
 QMenu::item:selected { background:#0f2a1c; color:#36f59b; }
 QMenu::item:disabled { color:#4b6656; }
@@ -75,11 +75,11 @@ QSplitter::handle:hover { background:#36f59b; }
 #pane[focused="true"] { border:1px solid #1fa866; }
 #paneHeader { background:#07110c; border-bottom:1px solid #163826; }
 #paneHeader[focused="true"] { background:#0b1a12; border-bottom:1px solid #36f59b; }
-#paneTitle { color:#a9c9b5; font-family:'Cascadia Code','Consolas',monospace; font-size:11px; }
+#paneTitle { color:#a9c9b5; font-family:'Cascadia Code','Consolas','SF Mono','Menlo','DejaVu Sans Mono',monospace; font-size:11px; }
 #paneHeader[focused="true"] #paneTitle { color:#e8f5ec; }
 #paneClose, #devBtn { color:#5f8270; background:transparent; border:none; padding:2px 7px;
                       font-family:'Segoe UI Symbol','Cascadia Code',monospace; font-size:12px; }
 #paneClose:hover, #devBtn:hover { color:#36f59b; background:#0f2a1c; }
 #devBar { background:#07110c; border-top:1px solid #1f5537; border-bottom:1px solid #163826; }
-#devTitle { color:#36f59b; font-family:'Cascadia Code','Consolas',monospace; font-size:11px; }
+#devTitle { color:#36f59b; font-family:'Cascadia Code','Consolas','SF Mono','Menlo','DejaVu Sans Mono',monospace; font-size:11px; }
 """
