@@ -49,12 +49,26 @@ a.binaries = [b for b in a.binaries
               if "plugins/multimedia/" not in b[0].replace("\\", "/")
               and not Path(b[0]).name.lower().startswith(("avcodec", "avformat", "avutil", "swresample", "swscale"))]
 
+if sys.platform.startswith("linux"):
+    # Don't bundle the build machine's own system libraries (glib, NSS, X11,
+    # libstdc++, ...): they need that distro's glibc (an Arch build would
+    # need glibc 2.43 and fail on Ubuntu, Debian, Fedora, RHEL). Every
+    # distro supplies them; the .deb / .rpm depend on them (make_packages.sh),
+    # setup.sh installs them. Bundled is only what comes from Python and the
+    # pip wheels (Qt, Qt WebEngine), which run on glibc 2.34+.
+    # Qt's GTK3 theme plugin alone pulls in all of GTK: leave it out too.
+    a.binaries = [b for b in a.binaries
+                  if not str(b[1]).startswith(("/usr/", "/lib/", "/lib64/"))
+                  and "platformthemes/libqgtk3" not in b[0].replace("\\", "/")]
+
 pyz = PYZ(a.pure)                               # noqa: F821
 
 exe = EXE(                                      # noqa: F821
     pyz,
     a.scripts,
-    [],
+    # -u: unbuffered stdout/stderr, so PRISM's "[prism] ..." lines show up at
+    # once (a frozen app ignores PYTHONUNBUFFERED).
+    [("u", None, "OPTION")],
     exclude_binaries=True,
     name="PRISM",
     icon=str(ROOT / "assets" / ("icon.ico" if WINDOWS else "icon.png")) if not MACOS else None,

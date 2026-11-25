@@ -31,7 +31,8 @@ jobs:
           dnf install -y epel-release
           dnf install -y rpm-build binutils alsa-lib dbus-libs libdrm mesa-libEGL mesa-libgbm mesa-libGL \
             fontconfig glib2 nspr nss libX11-xcb xcb-util-cursor xcb-util-wm xcb-util-image xcb-util-keysyms \
-            xcb-util-renderutil libXcomposite libXdamage libxkbcommon-x11 libxkbfile libXrandr libxshmfence libXtst
+            xcb-util-renderutil libXcomposite libXdamage libxkbcommon-x11 libxkbfile libXrandr libxshmfence libXtst \
+            krb5-libs libbrotli pulseaudio-libs cups-libs libwayland-client libwayland-cursor libwayland-egl
       - name: Build (.run, .deb, .rpm)
         run: PYTHON=/opt/python/cp314-cp314/bin/python3 packaging/build_linux.sh
       - uses: actions/upload-artifact@v4
@@ -71,7 +72,8 @@ jobs:
             rpm-zypper) zypper --non-interactive install --allow-unsigned-rpm ./prism-*.rpm ;;
             run)        pacman -Syu --noconfirm nss alsa-lib libxkbcommon-x11 xcb-util-cursor xcb-util-wm \
                           xcb-util-image xcb-util-keysyms xcb-util-renderutil libxkbfile libxshmfence \
-                          libxcomposite libxdamage libxrandr libxtst mesa fontconfig ttf-dejavu
+                          libxcomposite libxdamage libxrandr libxtst mesa fontconfig krb5 brotli libpulse \
+                          libcups wayland ttf-dejavu
                         sh ./PRISM-*-setup.run -y ;;
           esac
       - name: Smoke test (PRISM must start)
@@ -80,7 +82,9 @@ jobs:
           set +e
           # Containers can't create the namespaces Chromium's sandbox uses;
           # the container is the sandbox here.
-          export QT_QPA_PLATFORM=offscreen QTWEBENGINE_DISABLE_SANDBOX=1
+          # Headless (offscreen) Chromium crashes in its GPU code; on a real
+          # display it doesn't. The test only checks that PRISM starts.
+          export QT_QPA_PLATFORM=offscreen QTWEBENGINE_DISABLE_SANDBOX=1 QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu
           PRISM=$(command -v prism || echo /opt/prism/PRISM)
           timeout 40 "$PRISM" > run.log 2>&1
           grep -vE "^\[[0-9:/.]+(ERROR|WARNING)" run.log | tail -30
@@ -88,7 +92,7 @@ jobs:
           if grep -q "Traceback" run.log; then echo "::error::Python error at startup"; exit 1; fi
 
   macos:
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -99,7 +103,7 @@ jobs:
       - name: Smoke test (PRISM must start)
         run: |
           set +e
-          QT_QPA_PLATFORM=offscreen perl -e 'alarm 40; exec @ARGV' dist/PRISM.app/Contents/MacOS/PRISM > run.log 2>&1
+          QT_QPA_PLATFORM=offscreen QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu perl -e 'alarm 40; exec @ARGV' dist/PRISM.app/Contents/MacOS/PRISM > run.log 2>&1
           tail -30 run.log
           grep -q "blocked domains" run.log || { echo "::error::PRISM did not start on macOS"; exit 1; }
           if grep -q "Traceback" run.log; then echo "::error::Python error at startup"; exit 1; fi

@@ -84,7 +84,8 @@ elif [ "$OS" = Linux ]; then
               libnspr4 libnss3 libx11-xcb1 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1
               libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1
               libxcomposite1 libxdamage1 libxkbcommon-x11-0 libxkbcommon0 libxkbfile1 libxrandr2
-              libxshmfence1 libxtst6 fonts-dejavu-core"
+              libxshmfence1 libxtst6 libgssapi-krb5-2 libbrotli1 libpulse0 libcups2 libwayland-client0
+              libwayland-cursor0 libwayland-egl1 fonts-dejavu-core"
         # Ubuntu 24.04+ / Debian 13+ renamed these ("t64").
         for p in libasound2t64:libasound2 libglib2.0-0t64:libglib2.0-0; do
           if apt-cache show "${p%%:*}" >/dev/null 2>&1; then pkgs="$pkgs ${p%%:*}"; else pkgs="$pkgs ${p#*:}"; fi
@@ -96,7 +97,8 @@ elif [ "$OS" = Linux ]; then
         pkgs="python3 python3-pip alsa-lib dbus-libs libdrm mesa-libEGL mesa-libgbm mesa-libGL fontconfig
               glib2 nspr nss libX11-xcb xcb-util-cursor xcb-util-wm xcb-util-image xcb-util-keysyms
               xcb-util-renderutil libxcb libXcomposite libXdamage libxkbcommon libxkbcommon-x11 libxkbfile
-              libXrandr libxshmfence libXtst dejavu-sans-mono-fonts"
+              libXrandr libxshmfence libXtst krb5-libs libbrotli pulseaudio-libs cups-libs libwayland-client
+              libwayland-cursor libwayland-egl dejavu-sans-mono-fonts"
         # shellcheck disable=SC2086
         confirm "Install the system packages with dnf (sudo)?" && $SUDO dnf install -y $pkgs
         ;;
@@ -105,7 +107,8 @@ elif [ "$OS" = Linux ]; then
               mozilla-nspr mozilla-nss libX11-xcb1 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1
               libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1
               libXcomposite1 libXdamage1 libxkbcommon-x11-0 libxkbcommon0 libxkbfile1 libXrandr2
-              libxshmfence1 libXtst6 dejavu-fonts"
+              libxshmfence1 libXtst6 krb5 libbrotlidec1 libpulse0 libcups2 libwayland-client0
+              libwayland-cursor0 libwayland-egl1 dejavu-fonts"
         # shellcheck disable=SC2086
         confirm "Install the system packages with zypper (sudo)?" && $SUDO zypper --non-interactive install $pkgs
         ;;
@@ -116,7 +119,8 @@ elif [ "$OS" = Linux ]; then
         echo "Continuing with a virtual environment (same pinned packages as Windows)."
         confirm "Install the system packages with pacman (sudo)?" && \
           $SUDO pacman -S --needed --noconfirm python nss alsa-lib libxkbcommon-x11 xcb-util-cursor \
-            xcb-util-wm xcb-util-image xcb-util-keysyms xcb-util-renderutil libxkbfile libxshmfence ttf-dejavu
+            xcb-util-wm xcb-util-image xcb-util-keysyms xcb-util-renderutil libxkbfile libxshmfence krb5 brotli \
+            libpulse libcups wayland ttf-dejavu
         ;;
       *)
         echo "Unknown distro: install Python 3.10+, NSS, ALSA, libxkbcommon-x11 and the xcb-util libraries"

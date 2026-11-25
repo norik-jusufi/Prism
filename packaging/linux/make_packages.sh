@@ -24,20 +24,23 @@ DESCRIPTION="PRISM blocks ads, trackers, malware and phishing, keeps logins apar
 containers, sends DNS encrypted and has a full developer toolkit built in."
 
 # The libraries the bundled Qt WebEngine needs from the system (everything
-# else ships inside /opt/prism). Same list as the Dockerfile, which is tested
-# in CI. Ubuntu 24.04+ renamed some with a "t64" suffix, hence the "|"s.
+# else ships inside /opt/prism; prism.spec bundles no system libraries).
+# Checked against what the built app links to (objdump -p ... NEEDED). Ubuntu 24.04+ renamed some with a "t64" suffix, hence the "|"s.
 DEB_DEPENDS="libasound2t64 | libasound2, libdbus-1-3, libdrm2, libegl1, libfontconfig1, libgbm1, libgl1,
  libglib2.0-0t64 | libglib2.0-0, libnspr4, libnss3, libx11-xcb1, libxcb-cursor0, libxcb-icccm4,
  libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0, libxcb-shape0, libxcb-xfixes0,
  libxcb-xinerama0, libxcb-xkb1, libxcomposite1, libxdamage1, libxkbcommon-x11-0, libxkbcommon0,
- libxkbfile1, libxrandr2, libxshmfence1, libxtst6"
+ libxkbfile1, libxrandr2, libxshmfence1, libxtst6, libgssapi-krb5-2, libbrotli1, libpulse0, libcups2,
+ libudev1, libwayland-client0, libwayland-cursor0, libwayland-egl1"
 # RPM: by library name, which Fedora, RHEL and openSUSE all provide whatever
 # they call the package.
 RPM_REQUIRES=(libasound.so.2 libdbus-1.so.3 libdrm.so.2 libEGL.so.1 libfontconfig.so.1 libgbm.so.1 libGL.so.1
   libglib-2.0.so.0 libnspr4.so libnss3.so libX11-xcb.so.1 libxcb-cursor.so.0 libxcb-icccm.so.4
   libxcb-image.so.0 libxcb-keysyms.so.1 libxcb-randr.so.0 libxcb-render-util.so.0 libxcb-shape.so.0
   libxcb-xfixes.so.0 libxcb-xinerama.so.0 libxcb-xkb.so.1 libXcomposite.so.1 libXdamage.so.1
-  libxkbcommon-x11.so.0 libxkbcommon.so.0 libxkbfile.so.1 libXrandr.so.2 libxshmfence.so.1 libXtst.so.6)
+  libxkbcommon-x11.so.0 libxkbcommon.so.0 libxkbfile.so.1 libXrandr.so.2 libxshmfence.so.1 libXtst.so.6
+  libgssapi_krb5.so.2 libbrotlidec.so.1 libpulse.so.0 libcups.so.2 libudev.so.1 libwayland-client.so.0
+  libwayland-cursor.so.0 libwayland-egl.so.1)
 
 # --- the installed tree, shared by both formats
 stage_root() {  # $1: folder to fill
