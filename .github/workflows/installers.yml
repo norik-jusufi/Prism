@@ -1,14 +1,16 @@
-# Builds PRISM's Linux and macOS installers and checks they install and start
-# on the distributions PRISM supports.
+# Builds every PRISM installer, checks they install and start, and publishes
+# them as the GitHub release of the tag.
 #
-#   Linux   built in manylinux_2_34 (AlmaLinux 9, glibc 2.34), the oldest glibc
-#           Qt 6.12's wheels support, so the one build runs on every distro
-#           below: .run (any distro), .deb and .rpm.
-#   macOS   built on Apple silicon: .dmg.
+#   Windows  PRISM-Setup-<version>.exe (Inno Setup; the file one-click updates download)
+#   Linux    .run (any distro), .deb, .rpm. Built with a portable Python and
+#            no system libraries bundled, so the build needs glibc 2.34 at most
+#            (Qt 6.12's floor) and runs on every distro tested below.
+#   macOS    .dmg (Apple silicon)
 #
-# Runs when a version tag is pushed, and by hand from the Actions tab. The
-# files are attached to the run (Actions → this run → Artifacts); attach them
-# to the GitHub release.
+# On a version tag (git push origin v1.2.1): build, test, then create the
+# release for that tag with all files attached (pre-release for -beta tags).
+# By hand from the Actions tab: build and test only; the files are under the
+# run's Artifacts.
 
 name: Installers
 
@@ -21,23 +23,48 @@ permissions:
   contents: read
 
 jobs:
-  linux:
-    runs-on: ubuntu-latest
-    container: quay.io/pypa/manylinux_2_34_x86_64
+  windows:
+    runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Inno Setup
+        run: choco install innosetup -y --no-progress
+      - name: Build (PRISM-Setup-<version>.exe)
+        shell: cmd
+        run: packaging\build_windows.bat
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prism-windows
+          path: dist/PRISM-Setup-*.exe
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
       - name: Build tools, and the libraries Qt WebEngine loads while PyInstaller analyses it
         run: |
-          dnf install -y epel-release
-          dnf install -y rpm-build binutils alsa-lib dbus-libs libdrm mesa-libEGL mesa-libgbm mesa-libGL \
-            fontconfig glib2 nspr nss libX11-xcb xcb-util-cursor xcb-util-wm xcb-util-image xcb-util-keysyms \
-            xcb-util-renderutil libXcomposite libXdamage libxkbcommon-x11 libxkbfile libXrandr libxshmfence libXtst \
-            krb5-libs libbrotli pulseaudio-libs cups-libs libwayland-client libwayland-cursor libwayland-egl
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends rpm binutils libasound2 libdbus-1-3 libdrm2 libegl1 \
+            libfontconfig1 libgbm1 libgl1 libglib2.0-0 libnspr4 libnss3 libx11-xcb1 libxcb-cursor0 libxcb-icccm4 \
+            libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xfixes0 \
+            libxcb-xinerama0 libxcb-xkb1 libxcomposite1 libxdamage1 libxkbcommon-x11-0 libxkbcommon0 libxkbfile1 \
+            libxrandr2 libxshmfence1 libxtst6 libgssapi-krb5-2 libbrotli1 libpulse0 libcups2 libwayland-client0 \
+            libwayland-cursor0 libwayland-egl1
+      - uses: astral-sh/setup-uv@v6
+      - name: Portable Python 3.14 (python-build-standalone, glibc 2.17)
+        run: |
+          uv python install 3.14
+          echo "PYTHON=$(ls -d "$(uv python dir)"/cpython-3.14*/bin/python3.14 | head -1)" >> "$GITHUB_ENV"
       - name: Build (.run, .deb, .rpm)
-        run: PYTHON=/opt/python/cp314-cp314/bin/python3 packaging/build_linux.sh
+        run: packaging/build_linux.sh
       - uses: actions/upload-artifact@v4
         with:
           name: prism-linux
+          if-no-files-found: error
           path: |
             dist/*.run
             dist/*.deb
@@ -94,7 +121,7 @@ jobs:
   macos:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.14"
@@ -111,3 +138,32 @@ jobs:
         with:
           name: prism-macos
           path: dist/*.dmg
+          if-no-files-found: error
+
+  release:
+    # Only for version tags, and only once every installer is built and tested.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux-test, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: files
+          merge-multiple: true
+      - run: ls -la files
+      - id: v
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: PRISM ${{ steps.v.outputs.version }}
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            files/PRISM-Setup-*.exe
+            files/*.dmg
+            files/*.run
+            files/*.deb
+            files/*.rpm

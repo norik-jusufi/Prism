@@ -33,6 +33,24 @@ VERSION=$("$VENV/bin/python" -c 'from version import VERSION; print(VERSION)')
 echo "==> Self-test of the built executable"
 dist/PRISM/PRISM --version
 
+# Qt 6.12's wheels need glibc 2.34; nothing else in the bundle may need more,
+# or the installers stop working on Ubuntu 22.04, Debian 12 and RHEL 9. A
+# Python built on a newer distro (e.g. Arch's own) would: build with a
+# portable one (uv python install 3.14) and PYTHON=<its python3.14>.
+if command -v objdump >/dev/null 2>&1; then
+  MAX_GLIBC=2.34
+  need=$(find dist/PRISM -type f \( -name '*.so*' -o -name PRISM -o -name QtWebEngineProcess \) \
+           -exec objdump -T {} + 2>/dev/null | grep -o 'GLIBC_2\.[0-9]*' | sort -uV | tail -1)
+  need=${need#GLIBC_}
+  echo "==> Newest glibc the build needs: ${need:-unknown} (limit $MAX_GLIBC)"
+  if [ -n "$need" ] && [ "$(printf '%s\n%s\n' "$need" "$MAX_GLIBC" | sort -V | tail -1)" != "$MAX_GLIBC" ] \
+       && [ "${ALLOW_NEW_GLIBC:-0}" != 1 ]; then
+    echo "    Too new: these installers would only run on distros with glibc $need+." >&2
+    echo "    Build with a portable Python (see above), or ALLOW_NEW_GLIBC=1 for a local-only build." >&2
+    exit 1
+  fi
+fi
+
 echo "==> Installer"
 STAGE=build/installer-stage
 rm -rf "$STAGE"

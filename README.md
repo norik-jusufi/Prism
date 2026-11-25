@@ -120,12 +120,12 @@ Update: `git pull`, then `makepkg -si` again. Remove: `sudo pacman -R prism` (yo
 **Blocklists in an installed PRISM.** The ones bundled at build time are used until you update them: Start menu / app menu → *PRISM - Update blocklists*, or `PRISM --update-blocklists`. Updated lists go to the data folder (`blocklists\`), since the install folder may not be writable.
 
 **Releasing.**
-1. Raise `VERSION` in `version.py` (e.g. `1.2.0` or `1.2.0-beta`).
-2. Build: `packaging\build_windows.bat` (and `packaging/build_linux.sh` on Linux, `packaging/build_macos.sh` on a Mac).
-3. Commit, tag `v<VERSION>` and push: `git tag v1.2.0 && git push origin main --tags`.
-4. Create the GitHub release for that tag (pushing the tag already started the container build, see below) and attach `dist\PRISM-Setup-<VERSION>.exe` under exactly that name: the one-click update looks for it there. Mark `-beta` versions as pre-releases.
+1. Raise `VERSION` in `version.py` (e.g. `1.2.0` or `1.2.0-beta`) and `pkgver` in `packaging/arch/PKGBUILD`.
+2. Commit, tag `v<VERSION>` and push: `git tag v1.2.0 && git push origin main v1.2.0`.
 
-Pushing `version.py` is what makes running copies announce the update, so do step 4 right after step 3. Chromium security fixes reach installed copies only through a new build, so rebuild whenever the dashboard reports a newer Qt WebEngine.
+That's all. The tag starts `.github/workflows/installers.yml`: it builds the Windows installer (`PRISM-Setup-<VERSION>.exe`, the file the one-click update looks for), the Linux `.run`, `.deb` and `.rpm` and the macOS `.dmg`, checks that they install and start (Ubuntu 22.04 and 24.04, Debian 12, Fedora, Rocky Linux 9, openSUSE, Arch, macOS), and then publishes the GitHub release for the tag with all of them attached (`-beta` versions as pre-releases). If any build or test fails, no release is made: fix it, then move the tag (`git tag -f v1.2.0 && git push -f origin v1.2.0`). The tag also starts the container image build (below).
+
+Pushing `version.py` is what makes running copies announce the update, and the release appears only when the workflow finishes (about 30 minutes), so push the tag together with the version bump. Chromium security fixes reach installed copies only through a new build, so release whenever the dashboard reports a newer Qt WebEngine.
 
 ### Container image (GitHub Package)
 
