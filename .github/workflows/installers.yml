@@ -53,7 +53,7 @@ jobs:
             libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xfixes0 \
             libxcb-xinerama0 libxcb-xkb1 libxcomposite1 libxdamage1 libxkbcommon-x11-0 libxkbcommon0 libxkbfile1 \
             libxrandr2 libxshmfence1 libxtst6 libgssapi-krb5-2 libbrotli1 libpulse0 libcups2 libwayland-client0 \
-            libwayland-cursor0 libwayland-egl1
+            libwayland-cursor0 libwayland-egl1 libxfixes3 libxext6
       - uses: astral-sh/setup-uv@v6
       - name: Portable Python 3.14 (python-build-standalone, glibc 2.17)
         run: |
@@ -100,7 +100,7 @@ jobs:
             run)        pacman -Syu --noconfirm nss alsa-lib libxkbcommon-x11 xcb-util-cursor xcb-util-wm \
                           xcb-util-image xcb-util-keysyms xcb-util-renderutil libxkbfile libxshmfence \
                           libxcomposite libxdamage libxrandr libxtst mesa fontconfig krb5 brotli libpulse \
-                          libcups wayland ttf-dejavu
+                          libcups wayland libxfixes libxext ca-certificates ttf-dejavu
                         sh ./PRISM-*-setup.run -y ;;
           esac
       - name: Smoke test (PRISM must start)

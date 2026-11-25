@@ -31,7 +31,8 @@ DEB_DEPENDS="libasound2t64 | libasound2, libdbus-1-3, libdrm2, libegl1, libfontc
  libxcb-image0, libxcb-keysyms1, libxcb-randr0, libxcb-render-util0, libxcb-shape0, libxcb-xfixes0,
  libxcb-xinerama0, libxcb-xkb1, libxcomposite1, libxdamage1, libxkbcommon-x11-0, libxkbcommon0,
  libxkbfile1, libxrandr2, libxshmfence1, libxtst6, libgssapi-krb5-2, libbrotli1, libpulse0, libcups2,
- libudev1, libwayland-client0, libwayland-cursor0, libwayland-egl1"
+ libudev1, libwayland-client0, libwayland-cursor0, libwayland-egl1, libxfixes3, libxext6, libx11-6, libxcb1,
+ ca-certificates"
 # RPM: by library name, which Fedora, RHEL and openSUSE all provide whatever
 # they call the package.
 RPM_REQUIRES=(libasound.so.2 libdbus-1.so.3 libdrm.so.2 libEGL.so.1 libfontconfig.so.1 libgbm.so.1 libGL.so.1
@@ -40,7 +41,8 @@ RPM_REQUIRES=(libasound.so.2 libdbus-1.so.3 libdrm.so.2 libEGL.so.1 libfontconfi
   libxcb-xfixes.so.0 libxcb-xinerama.so.0 libxcb-xkb.so.1 libXcomposite.so.1 libXdamage.so.1
   libxkbcommon-x11.so.0 libxkbcommon.so.0 libxkbfile.so.1 libXrandr.so.2 libxshmfence.so.1 libXtst.so.6
   libgssapi_krb5.so.2 libbrotlidec.so.1 libpulse.so.0 libcups.so.2 libudev.so.1 libwayland-client.so.0
-  libwayland-cursor.so.0 libwayland-egl.so.1)
+  libwayland-cursor.so.0 libwayland-egl.so.1 libXfixes.so.3 libXext.so.6 libX11.so.6 libxcb.so.1
+  ca-certificates)
 
 # --- the installed tree, shared by both formats
 stage_root() {  # $1: folder to fill
@@ -123,7 +125,9 @@ make_rpm() {
   stage_root "$work/root"
   local requires="" lib suffix=""
   case "$ARCH" in x86_64|aarch64|ppc64le|s390x) suffix="()(64bit)" ;; esac
-  for lib in "${RPM_REQUIRES[@]}"; do requires+="Requires: ${lib}${suffix}"$'\n'; done
+  for lib in "${RPM_REQUIRES[@]}"; do
+    case "$lib" in *.so*) requires+="Requires: ${lib}${suffix}"$'\n' ;; *) requires+="Requires: ${lib}"$'\n' ;; esac
+  done
   cat > "$work/prism.spec" <<EOF
 Name:           prism
 Version:        $rver
