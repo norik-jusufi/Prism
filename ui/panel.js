@@ -293,6 +293,9 @@
         <div id="cb-list" style="margin-top:6px"></div>
         <div id="mal-allow"></div>
 
+        <h2>Search <small>SearXNG</small></h2>
+        <div class="box stack" id="search-box"></div>
+
         <h2>Encrypted DNS <small>DNS-over-HTTPS</small></h2>
         <div class="box stack" id="dns-box"></div>`;
       $("#net-q").addEventListener("input", (e) => { NF.q = e.target.value.toLowerCase(); NF.sel = -1; drawLog(); });
@@ -322,8 +325,29 @@
         : `<p class="note">Nothing yet. Add a domain, or block a host from the request log above.</p>`;
       $("#mal-allow").innerHTML = d.allowedMalware.length ? `<p class="note warn">Allowed despite a warning this session: ${d.allowedMalware.map(esc).join(", ")}</p>` : "";
       drawDns(d);
+      drawSearch(d.search);
     },
   };
+
+  function drawSearch(s) {
+    const box = $("#search-box");
+    if (!box || box.contains(document.activeElement)) return;
+    box.innerHTML = `
+      <p class="note" style="margin-top:0">PRISM searches with <b>SearXNG</b>: open-source metasearch that asks several engines
+        for you and returns the results without ads, tracking or a profile. Public instances are shared and sometimes busy;
+        PRISM then moves on to the next one. Your own instance is the most private and never busy.</p>
+      <div class="kv" style="grid-template-columns:max-content 1fr"><dt>searching on</dt><dd class="mono">${esc(s.current)}</dd>
+        ${s.busy.length ? `<dt>busy</dt><dd class="warn mono">${s.busy.map(esc).join(", ")}</dd>` : ""}</div>
+      <div class="row"><input type="text" id="sx-inst" class="grow" placeholder="your instance, e.g. https://search.example.org"
+        value="${esc(s.instance)}"><button class="btn sm" data-act="sxSave">Use</button>${s.instance ? `<button class="btn sm" data-act="sxClear">Clear</button>` : ""}</div>
+      <label class="tg"><span class="sw"><input type="checkbox" data-change="sxPublic" ${s.publicFallback ? "checked" : ""}><i></i></span>
+        <span class="grow">Use public instances when mine is unreachable</span></label>
+      <div class="muted" style="font-size:11px">Public: ${s.public.map(esc).join(" · ")}</div>`;
+    $("#sx-inst").addEventListener("keydown", (e) => { if (e.key === "Enter") ACT.sxSave(); });
+  }
+  ACT.sxSave = () => call("net.search", { instance: $("#sx-inst").value, publicFallback: D.network.search.publicFallback });
+  ACT.sxClear = () => call("net.search", { instance: "", publicFallback: true });
+  ACT.sxPublic = (i) => call("net.search", { instance: D.network.search.instance, publicFallback: i.checked });
   function logRows() {
     const d = D.network;
     if (!d) return [];

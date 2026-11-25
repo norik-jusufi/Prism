@@ -29,6 +29,7 @@ from PyQt6.QtWebEngineCore import (
 )
 
 from siteintel import RESOURCE_TYPES, site_of
+from urls import is_search as is_search_url
 from stats import SessionStats
 
 from paths import RESOURCES as ROOT, user_blocklists_dir
@@ -245,8 +246,7 @@ class PrivacyEngine:
                 info.redirect(cleaned)
                 return
             if web:
-                is_search = ((host.endswith("libresearch.ca") and url.path().startswith("/search"))
-                             or (host == "duckduckgo.com" and "q=" in url.query()))
+                is_search = "q=" in url.query() and is_search_url(url, self.settings["search"].get("instance", ""))
                 self.stats.page(host, url.scheme() == "https", is_search)
 
         if url.scheme() == "file":

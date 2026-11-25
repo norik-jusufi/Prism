@@ -115,7 +115,7 @@ class Tab:
         self.loading = False
         self.progress = 0
         self.find = {"text": "", "matches": 0, "active": 0}
-        self.fallback_from = ""   # LibreSearch URL we already rerouted
+        self.fallback_from = ""   # search URL we already rerouted to another SearXNG instance
         self.pending_url = ""
         self.prompts: list[dict] = []    # pending permission requests
         self.device: dict | None = None  # responsive preview {name, w, h}

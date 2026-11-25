@@ -1,14 +1,12 @@
-/* PRISM new-tab dashboard. Searches go straight to LibreSearch. Python pushes
+/* PRISM new-tab dashboard. Searches go to SearXNG (the instance Python says is
+   answering: your own, or the first public one that isn't busy). Python pushes
    browser stats through window.prismStats() (only when they changed, at most
    once a second). Parts are redrawn only when their data did. */
 (function () {
   "use strict";
 
-  const ENGINE = "https://www.libresearch.ca/search";
-  const FLAGS = { filterads: "1", blockads: "1", blocktrackers: "1" };
-  const FALLBACK = "https://duckduckgo.com/";
-  const FALLBACK_FLAGS = { kae: "d", k1: "-1", kak: "-1", kax: "-1", kaq: "-1", kap: "-1", kao: "-1", kau: "-1" };
-  let libreDown = false;           // pushed from Python
+  // Until Python's first push: the first public instance (see urls.py SEARXNG_INSTANCES).
+  let engine = { instance: "https://searx.be", flags: { categories: "general", language: "auto", safesearch: "0" } };
   const $ = (id) => document.getElementById(id);
   const input = $("q");
   const fmt = (n) => Number(n).toLocaleString();
@@ -30,9 +28,7 @@
       location.href = /^[a-z][\w+.-]*:\/\//i.test(q) ? q : "http://" + q;
       return;
     }
-    location.href = libreDown
-      ? FALLBACK + "?" + new URLSearchParams({ q, ...FALLBACK_FLAGS }).toString()
-      : ENGINE + "?" + new URLSearchParams({ q, ...FLAGS }).toString();
+    location.href = engine.instance.replace(/\/$/, "") + "/search?" + new URLSearchParams({ q, ...engine.flags }).toString();
   });
 
   document.addEventListener("keydown", (e) => {
@@ -173,12 +169,11 @@
     $("k-exc").textContent = fmt(s.shieldOff);
     $("k-rules").textContent = fmt(s.rules);
     const e = s.engine;
-    libreDown = e.down;
+    engine = e;
     const eng = $("f-engine");
-    eng.textContent = e.down
-      ? `${e.primary} down → ${e.fallback} (retry in ${Math.ceil(e.retryIn / 60)}m)`
-      : `${e.primary} (fallback: ${e.fallback})`;
-    eng.classList.toggle("warn", e.down);
+    eng.textContent = `${e.name} · ${e.host}${e.own ? " (yours)" : ""}` +
+      (e.busy ? ` · ${e.busy}/${e.count} busy` : "");
+    eng.classList.toggle("warn", e.busy > 0);
     $("k-fallbacks").textContent = fmt(s.fallbacks);
     $("f-sources").textContent = s.sources.length ? s.sources.join(" · ") : "none";
     drawUpdates(s.updates, s.edition);

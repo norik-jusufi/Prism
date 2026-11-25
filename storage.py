@@ -90,6 +90,7 @@ DEFAULT_SETTINGS = {
     "customBlocks": [],           # extra hosts the user never wants to reach
     "terminal": {"shell": "cmd", "cwd": ""},
     "rememberLogins": {},         # container id -> folder under logins/ (opt-in, standard containers only)
+    "search": {"instance": "", "publicFallback": True},   # your own SearXNG instance; public ones as backup
 }
 
 

@@ -1,4 +1,4 @@
-"""PRISM addresses: the local UI pages, the search engines and how
+"""PRISM addresses: the local UI pages, the search engine (SearXNG) and how
 address-bar input turns into a URL."""
 
 from __future__ import annotations
@@ -18,23 +18,33 @@ WARNING_URL = QUrl.fromLocalFile(str(UI / "warning.html"))
 TIMEMACHINE_URL = QUrl.fromLocalFile(str(UI / "timemachine.html"))
 ICON = ROOT / "assets" / "icon.png"
 
-SEARCH_NAME = "LibreSearch"
-SEARCH_ENDPOINT = "https://www.libresearch.ca/search"
-SEARCH_FLAGS = [("filterads", "1"), ("blockads", "1"), ("blocktrackers", "1")]
+SEARCH_NAME = "SearXNG"
+# Public SearXNG instances, tried in this order. SearXNG is open-source
+# metasearch: it asks several engines for you and returns the results
+# without ads, tracking or a profile. Instances come and go and rate-limit
+# busy IPs, so PRISM moves on to the next one when an instance refuses
+# (see PrismWindow.search_for); your own instance (Panel → Network) goes first.
+SEARXNG_INSTANCES = [
+    "https://searx.be",
+    "https://search.inetol.net",
+    "https://priv.au",
+    "https://paulgo.io",
+    "https://baresearch.org",
+    "https://searx.tiekoetter.com",
+    "https://opnxng.com",
+    "https://search.sapti.me",
+]
+SEARCH_FLAGS = [("categories", "general"), ("language", "auto"), ("safesearch", "0")]
+INSTANCE_RETRY_SECONDS = 600                    # skip a refusing instance for 10 min
 
-# Backup engine, used automatically while LibreSearch is failing.
-FALLBACK_NAME = "DuckDuckGo"
-FALLBACK_ENDPOINT = "https://duckduckgo.com/"
-# dark theme, ads off, no install / newsletter / upgrade promos
-FALLBACK_FLAGS = [("kae", "d"), ("k1", "-1"), ("kak", "-1"), ("kax", "-1"),
-                  ("kaq", "-1"), ("kap", "-1"), ("kao", "-1"), ("kau", "-1")]
-LIBRE_RETRY_SECONDS = 300                       # retry LibreSearch after 5 min
-
-# Text LibreSearch shows when its backend fails. Checked in an isolated JS
-# world so the page can't tamper with the check.
-LIBRE_ERROR_JS = r"""(function () {
-  var t = document.body ? document.body.innerText : "";
-  return /backend rejected the request|search (backend|service) (is )?unavailable|temporarily unavailable|too many requests/i.test(t);
+# What a SearXNG instance shows when it refuses a search (its rate limiter,
+# a proxy error). Browser checks ("Checking your browser") are not failures:
+# they pass by themselves. Checked in an isolated JS world so the page can't
+# tamper with the check.
+SEARCH_ERROR_JS = r"""(function () {
+  if (document.querySelector('article.result')) return false;
+  var t = document.body ? document.body.innerText.slice(0, 2000) : "";
+  return /^\s*too many requests|rate limit(ed)? exceeded|^\s*(403 )?forbidden|access denied|^\s*(502 )?bad gateway|^\s*(503 )?service (temporarily )?unavailable/im.test(t);
 })()"""
 
 # TLDs we treat as "this is a web address" when no scheme is typed. Kept
@@ -44,21 +54,36 @@ xyz tech cloud sh so gg to fm ly is it de fr uk ca au nz jp cn kr in br es nl
 se no fi dk pl ch at be cz ru ua eu us site online page wiki blog news""".split())
 
 
-def _engine_url(endpoint: str, flags, query: str) -> QUrl:
+def clean_instance(text: str) -> str:
+    """"searx.example.org/" -> "https://searx.example.org" ("" if it isn't an address)."""
+    t = text.strip().rstrip("/")
+    if not t:
+        return ""
+    url = QUrl(t if "://" in t else "https://" + t)
+    if url.scheme() not in ("http", "https") or not url.host() or "." not in url.host() and url.host() != "localhost":
+        return ""
+    port = f":{url.port()}" if url.port() != -1 else ""
+    path = url.path().rstrip("/")
+    return f"{url.scheme()}://{url.host().lower()}{port}{path}"
+
+
+def search_url(query: str, instance: str = SEARXNG_INSTANCES[0]) -> QUrl:
     # urlencode escapes + & # % correctly, so "c++" or "a&b" survive intact.
-    return QUrl.fromEncoded((endpoint + "?" + urlencode([("q", query), *flags])).encode("ascii"))
+    return QUrl.fromEncoded((instance.rstrip("/") + "/search?" + urlencode([("q", query), *SEARCH_FLAGS])).encode("ascii"))
 
 
-def search_url(query: str) -> QUrl:
-    return _engine_url(SEARCH_ENDPOINT, SEARCH_FLAGS, query)
+def instance_of(url: QUrl) -> str:
+    """The SearXNG instance a search URL belongs to ("" when it is not a search)."""
+    path = url.path()
+    if not path.endswith("/search"):
+        return ""
+    port = f":{url.port()}" if url.port() != -1 else ""
+    return f"{url.scheme()}://{url.host().lower()}{port}{path[:-len('/search')]}"
 
 
-def fallback_url(query: str) -> QUrl:
-    return _engine_url(FALLBACK_ENDPOINT, FALLBACK_FLAGS, query)
-
-
-def is_libre_search(url: QUrl) -> bool:
-    return url.host().lower().endswith("libresearch.ca") and url.path().startswith("/search")
+def is_search(url: QUrl, custom: str = "") -> bool:
+    inst = instance_of(url)
+    return bool(inst) and (inst in SEARXNG_INSTANCES or (bool(custom) and inst == custom.rstrip("/")))
 
 
 def query_of(url: QUrl) -> str:
@@ -68,7 +93,7 @@ def query_of(url: QUrl) -> str:
 
 
 def resolve_input(text: str, search=None) -> QUrl:
-    """Turn address-bar input into a URL or a LibreSearch query."""
+    """Turn address-bar input into a URL or a SearXNG query."""
     t = text.strip()
     if not t:
         return NEWTAB_URL

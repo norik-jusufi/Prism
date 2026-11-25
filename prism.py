@@ -1,8 +1,8 @@
 """PRISM: the privacy-first research browser, built and maintained by Synterra.
 
 What it does:
-  * LibreSearch as the search engine, with automatic DuckDuckGo fallback
-    whenever the LibreSearch backend rejects a query
+  * SearXNG as the search engine (open-source metasearch, no tracking), moving
+    to the next instance whenever one is busy; your own instance goes first
   * off-the-record sessions: browsing data never touches the disk
   * ad / tracker / malware blocking, tracking-parameter stripping, DNT + GPC,
     third-party cookie blocking, WebRTC IP-leak protection, optional

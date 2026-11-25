@@ -1,5 +1,5 @@
-"""PRISM main window: tabs, split panes, the HTML toolbar and panel, search
-fallback, permissions, page events and the new-tab dashboard.
+"""PRISM main window: tabs, split panes, the HTML toolbar and panel, SearXNG
+instance rotation, permissions, page events and the new-tab dashboard.
 
 Containers live in containers.py and the developer views in devtools.py;
 both are mixed into PrismWindow. Imports Qt WebEngine: only import this
@@ -36,9 +36,9 @@ from tabs import APP_WORLD, Tab
 from theme import APP_QSS, BG_DARK, BG_LIGHT, dot_icon, icon_to_data_url, set_dark_titlebar
 from updates import UpdateChecker
 from urls import (
-    CHROME_URL, FALLBACK_NAME, ICON, LIBRE_ERROR_JS, LIBRE_RETRY_SECONDS, NEWTAB_URL, PANEL_URL, SEARCH_NAME,
-    TIMEMACHINE_URL, WARNING_URL, fallback_url, is_libre_search, is_local_ui, is_newtab, query_of, resolve_input,
-    search_url,
+    CHROME_URL, ICON, INSTANCE_RETRY_SECONDS, NEWTAB_URL, PANEL_URL, SEARCH_ERROR_JS, SEARCH_FLAGS, SEARCH_NAME,
+    SEARXNG_INSTANCES, TIMEMACHINE_URL, WARNING_URL, instance_of, is_local_ui, is_newtab, is_search, query_of,
+    resolve_input, search_url,
 )
 from workspace import DEVICES, MAX_PANES, Pane
 
@@ -60,7 +60,7 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
         self.tabs: list[Tab] = []
         self.active: Tab | None = None
         self.closed: list[tuple[QUrl, str]] = []   # memory only, for Ctrl+Shift+T
-        self.libre_down_until = 0.0          # LibreSearch failing -> use fallback
+        self.search_down: dict[str, float] = {}   # SearXNG instance -> refusing until (time.time())
         self.find_open = False
         self.dirty: set[int] = set()
         self._prompt_n = 0
@@ -508,45 +508,70 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
         menu.addAction("Close other tabs", lambda: [self.close_tab(x.id) for x in list(self.tabs) if x is not t])
         menu.exec(QCursor.pos())
 
-    # ------------------------------------------------- search + fallback
-    def libre_down(self) -> bool:
-        return time.time() < self.libre_down_until
+    # ------------------------------------------------- search (SearXNG)
+    def search_instances(self) -> list[str]:
+        """Your own instance first (if set), then the public ones (unless turned off)."""
+        conf = self.settings["search"]
+        own = conf.get("instance", "")
+        public = [i for i in SEARXNG_INSTANCES if i != own]
+        if own and not conf.get("publicFallback", True):
+            return [own]
+        return ([own] if own else []) + public
+
+    def search_instance(self) -> str:
+        """The first instance that isn't refusing right now (or the one back soonest)."""
+        now = time.time()
+        insts = self.search_instances()
+        for inst in insts:
+            if self.search_down.get(inst, 0) <= now:
+                return inst
+        return min(insts, key=lambda i: self.search_down.get(i, 0))
 
     def search_for(self, query: str) -> QUrl:
-        """LibreSearch normally; DuckDuckGo while LibreSearch is known to be failing."""
-        return fallback_url(query) if self.libre_down() else search_url(query)
+        return search_url(query, self.search_instance())
 
-    def check_libre(self, tab: Tab):
+    def is_search_page(self, url: QUrl) -> bool:
+        return is_search(url, self.settings["search"].get("instance", ""))
+
+    def check_search(self, tab: Tab):
         url = tab.url
-        if tab not in self.tabs or not is_libre_search(url):
+        if tab not in self.tabs or not self.is_search_page(url):
             return
         tab.page.runJavaScript(
-            LIBRE_ERROR_JS, APP_WORLD,
-            lambda bad, tab=tab, url=url: self.on_libre_checked(tab, url, bool(bad)))
+            SEARCH_ERROR_JS, APP_WORLD,
+            lambda bad, tab=tab, url=url: self.on_search_checked(tab, url, bool(bad)))
 
-    def on_libre_checked(self, tab: Tab, url: QUrl, bad: bool):
+    def on_search_checked(self, tab: Tab, url: QUrl, bad: bool):
         if tab not in self.tabs or tab.url != url:
             return
         if not bad:
             if not tab.loading:
-                self.libre_down_until = 0.0     # LibreSearch answered: it's back
+                self.search_down.pop(instance_of(url), None)     # it answered: it's fine
             return
         self.reroute_search(tab, url)
 
     def reroute_search(self, tab: Tab, url: QUrl):
+        """This instance refused: skip it for a while and run the search on the next one."""
         key = url.toString()
         query = query_of(url)
         if not query or tab.fallback_from == key:
             return
         tab.fallback_from = key
-        self.libre_down_until = time.time() + LIBRE_RETRY_SECONDS
+        failed = instance_of(url)
+        self.search_down[failed] = time.time() + INSTANCE_RETRY_SECONDS
+        nxt = self.search_instance()
+        if self.search_down.get(nxt, 0) > time.time():
+            self.bridge.toast.emit(f"Every {SEARCH_NAME} instance is busy right now. Try again in a few minutes, "
+                                   "or add your own instance in Panel → Network.")
+            self.push_dashboards()
+            return
         stats = self.engine.stats
         stats.fallbacks += 1
-        stats.searches = max(0, stats.searches - 1)   # the DuckDuckGo hit counts instead
-        target = bytes(fallback_url(query).toEncoded()).decode("ascii")
+        stats.searches = max(0, stats.searches - 1)   # the retry counts instead
+        target = bytes(search_url(query, nxt).toEncoded()).decode("ascii")
         # location.replace drops the error page from history, so Back doesn't loop.
         tab.page.runJavaScript(f"location.replace({json.dumps(target)})", APP_WORLD)
-        self.bridge.toast.emit(f"{SEARCH_NAME} unavailable: showing {FALLBACK_NAME} results")
+        self.bridge.toast.emit(f"{QUrl(failed).host()} is busy: searching on {QUrl(nxt).host()}")
         self.push_dashboards()
 
     # ------------------------------------------------- per-page rules
@@ -679,10 +704,10 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
         if is_newtab(url):
             tab.icon = ""
         tab.inspector = False
-        if is_libre_search(url):
-            # LibreSearch can also navigate client-side (no loadFinished), so poll briefly.
+        if self.is_search_page(url):
+            # SearXNG can also navigate client-side (no loadFinished), so poll briefly.
             for delay in (1200, 3000, 6000):
-                QTimer.singleShot(delay, lambda tab=tab: self.check_libre(tab))
+                QTimer.singleShot(delay, lambda tab=tab: self.check_search(tab))
         self.on_tab_changed(tab)
 
     def on_icon(self, tab: Tab, icon: QIcon):
@@ -696,10 +721,10 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
     def on_load_finished(self, tab: Tab, ok: bool):
         tab.loading, tab.progress = False, 100
         url = tab.url
-        if is_libre_search(url):
+        if self.is_search_page(url):
             if ok:
-                self.check_libre(tab)
-            else:                                   # LibreSearch unreachable entirely
+                self.check_search(tab)
+            else:                                   # instance unreachable entirely
                 self.reroute_search(tab, url)
         if is_newtab(url):
             tab._dash_last = None      # fresh page: send everything
@@ -756,11 +781,18 @@ class PrismWindow(ContainersMixin, DevToolsMixin, QMainWindow):
         data = self.engine.stats.snapshot()
         data.update(rules=len(self.blocklist), sources=self.blocklist.sources,
                     tabs=len(self.tabs), shieldOff=len(self.engine.site_allow),
-                    engine={"primary": SEARCH_NAME, "fallback": FALLBACK_NAME,
-                            "down": self.libre_down(),
-                            "retryIn": max(0, int(self.libre_down_until - time.time()))},
+                    engine=self.search_info(),
                     edition=EDITION, updates=self.updates.snapshot())
         return json.dumps(data)
+
+    def search_info(self) -> dict:
+        now = time.time()
+        insts = self.search_instances()
+        inst = self.search_instance()
+        return {"name": SEARCH_NAME, "instance": inst, "host": QUrl(inst).host(),
+                "own": inst == self.settings["search"].get("instance", ""),
+                "busy": sum(1 for i in insts if self.search_down.get(i, 0) > now), "count": len(insts),
+                "flags": dict(SEARCH_FLAGS)}
 
     def push_dashboard(self, tab: Tab, data: str | None = None):
         """Send stats to one dashboard.

@@ -7,7 +7,7 @@
 PRISM blocks ads, trackers, malware and phishing out of the box, keeps your logins apart in containers, sends DNS encrypted, and puts a full developer toolkit one shortcut away.
 Its **Privacy Time Machine** lets you rewind any page and watch what it tried to do to you.
 Built only with **Python**: the engine, privacy and ad blocking, and **HTML / CSS / JS**: the whole visible UI.
-Search runs through **[LibreSearch](https://www.libresearch.ca)**.
+Search runs through **[SearXNG](https://docs.searxng.org)**, open-source metasearch with no ads, tracking or profile.
 
 ## Run
 
@@ -108,18 +108,19 @@ It's a Linux desktop app in a box, drawing on your screen through X11 (XWayland 
 ```bash
 xhost +SI:localuser:$(id -un)
 docker run --rm -e DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix \
-  --user $(id -u):$(id -g) --shm-size 1g -v prism-data:/data ghcr.io/norik-jusufi/prism:beta
+  --user $(id -u):$(id -g) --shm-size 1g -v prism-data:/data ghcr.io/norik-jusufi/prism:latest
 ```
 
 Settings, logins and stats stay in the `prism-data` volume; `docker pull` updates. Chromium's own sandbox is off in the container (the container is the sandbox). Native installs above are smoother; the image is for trying PRISM or running it on a Linux machine without installing anything.
 
 ## Search
 
-Searches go to **LibreSearch** first.
-If LibreSearch fails (for example "Search backend rejected the request", or the site can't be reached), PRISM swaps the error page for **DuckDuckGo** results for the same query.
-DuckDuckGo loads with its dark theme, ads off and install promos off.
-For the next 5 minutes searches go straight to DuckDuckGo, then PRISM tries LibreSearch again.
-The dashboard footer shows which engine is in use.
+Searches go to **[SearXNG](https://docs.searxng.org)**: open-source metasearch that asks several search engines for you and returns their results without ads, tracking or a profile of you.
+SearXNG runs on many independent servers ("instances"). PRISM uses a list of public ones (`SEARXNG_INSTANCES` in `urls.py`, `searx.be` first).
+Public instances are shared and sometimes refuse a search ("Too Many Requests"), or can't be reached. PRISM then skips that instance for 10 minutes and runs the same search on the next one. Browser checks some instances show ("Checking your browser…") pass by themselves.
+
+**Your own instance** is the most private option and is never busy: set it in Panel → Network → Search (for example `https://search.example.org`, or `http://localhost:8080` for one running on your PC; see the [SearXNG install guide](https://docs.searxng.org/admin/installation.html)). It goes first; untick **Use public instances when mine is unreachable** to never search anywhere else.
+The dashboard footer shows the instance in use and how many are busy.
 
 ## Boot intro
 
@@ -242,7 +243,7 @@ Statistics are kept across restarts in `stats.json` (saved every 30 seconds and 
 | `Ctrl Shift Del` | Purge session |
 
 Typing in the address bar opens a page if the text looks like an address (`github.com/x`, `localhost:8000`).
-Anything else becomes a LibreSearch query, so `os.path.join` or `main.py` gets searched.
+Anything else becomes a SearXNG search, so `os.path.join` or `main.py` gets searched.
 
 ## Layout
 

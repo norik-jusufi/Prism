@@ -729,7 +729,7 @@ begin
   MinLbl.Top := ScaleY(11);
   MinLbl.Cursor := crHand;
   MinLbl.OnClick := @MinClick;
-  VerLbl := NewLabel(WizardForm, 'v{#AppVersion}  ' + #$00B7 + '  beta channel', 'Consolas', 8, False, Muted, Bg1);
+  VerLbl := NewLabel(WizardForm, 'v{#AppVersion}  ' + #$00B7 + '  stable', 'Consolas', 8, False, Muted, Bg1);
   VerLbl.Left := X0;
   VerLbl.Top := CH - ScaleY(38);
 

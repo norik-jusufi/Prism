@@ -330,7 +330,33 @@ class PanelBridge(QObject):
             "lists": {"trackers": len(self.w.blocklist), "malware": len(self.w.blocklist.malware),
                       "sources": self.w.blocklist.sources, "securitySources": self.w.blocklist.security_sources},
             "allowedMalware": sorted(self.w.engine.malware_allow),
+            "search": self._search_state(),
         }
+
+    def _search_state(self) -> dict:
+        from urls import SEARXNG_INSTANCES
+        conf = self.w.settings["search"]
+        now = time.time()
+        return {"instance": conf.get("instance", ""), "publicFallback": conf.get("publicFallback", True),
+                "current": self.w.search_instance(), "public": SEARXNG_INSTANCES,
+                "busy": [i for i, until in self.w.search_down.items() if until > now]}
+
+    def _do_net_search(self, p):
+        from urls import clean_instance
+        raw = str(p.get("instance", ""))
+        inst = clean_instance(raw)
+        if raw.strip() and not inst:
+            self.toast("That doesn't look like an address. Try https://search.example.org")
+            return
+        conf = self.w.settings["search"]
+        conf["instance"] = inst
+        conf["publicFallback"] = bool(p.get("publicFallback", True))
+        self.w.settings.save()
+        if inst:
+            self.w.search_down.pop(inst, None)
+        self.toast(f"Searching with {inst}" if inst else "Searching with the public SearXNG instances")
+        self.push_section("network")
+        self.w.push_dashboards()
 
     def _do_net_protection(self, p):
         key = p.get("key")
