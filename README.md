@@ -122,10 +122,17 @@ Update: `git pull`, then `makepkg -si` again. Remove: `sudo pacman -R prism` (yo
 **Releasing.**
 1. Raise `VERSION` in `version.py` (e.g. `1.2.0` or `1.2.0-beta`) and `pkgver` in `packaging/arch/PKGBUILD`.
 2. Commit, tag `v<VERSION>` and push: `git tag v1.2.0 && git push origin main v1.2.0`.
+3. The tag starts `.github/workflows/installers.yml` (about 30 minutes): it builds the Windows installer (`PRISM-Setup-<VERSION>.exe`, the file the one-click update looks for), the Linux `.run`, `.deb` and `.rpm` and the macOS `.dmg`, and checks that they install and start (Ubuntu 22.04 and 24.04, Debian 12, Fedora, Rocky Linux 9, openSUSE, Arch, macOS).
+4. When every job passed, publish the release from your own account with all the files:
 
-That's all. The tag starts `.github/workflows/installers.yml`: it builds the Windows installer (`PRISM-Setup-<VERSION>.exe`, the file the one-click update looks for), the Linux `.run`, `.deb` and `.rpm` and the macOS `.dmg`, checks that they install and start (Ubuntu 22.04 and 24.04, Debian 12, Fedora, Rocky Linux 9, openSUSE, Arch, macOS), and then publishes the GitHub release for the tag with all of them attached (`-beta` versions as pre-releases). If any build or test fails, no release is made: fix it, then move the tag (`git tag -f v1.2.0 && git push -f origin v1.2.0`). The tag also starts the container image build (below).
+```bash
+gh run download <run id> -D release-files          # the run's artifacts
+gh release create v1.2.0 release-files/*/* --title "PRISM 1.2.0" --generate-notes   # add --prerelease for -beta
+```
 
-Pushing `version.py` is what makes running copies announce the update, and the release appears only when the workflow finishes (about 30 minutes), so push the tag together with the version bump. Chromium security fixes reach installed copies only through a new build, so release whenever the dashboard reports a newer Qt WebEngine.
+If a job fails, fix it, then move the tag (`git tag -f v1.2.0 && git push -f origin v1.2.0`). The tag also starts the container image build (below).
+
+Pushing `version.py` is what makes running copies announce the update, so publish the release soon after the run passes. Chromium security fixes reach installed copies only through a new build, so release whenever the dashboard reports a newer Qt WebEngine.
 
 ### Container image (GitHub Package)
 

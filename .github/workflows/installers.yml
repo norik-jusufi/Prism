@@ -1,5 +1,4 @@
-# Builds every PRISM installer, checks they install and start, and publishes
-# them as the GitHub release of the tag.
+# Builds every PRISM installer and checks they install and start.
 #
 #   Windows  PRISM-Setup-<version>.exe (Inno Setup; the file one-click updates download)
 #   Linux    .run (any distro), .deb, .rpm. Built with a portable Python and
@@ -7,10 +6,11 @@
 #            (Qt 6.12's floor) and runs on every distro tested below.
 #   macOS    .dmg (Apple silicon)
 #
-# On a version tag (git push origin v1.2.1): build, test, then create the
-# release for that tag with all files attached (pre-release for -beta tags).
-# By hand from the Actions tab: build and test only; the files are under the
-# run's Artifacts.
+# Runs when a version tag is pushed, and by hand from the Actions tab. The
+# files are the run's artifacts. The GitHub release is published by the
+# maintainer from their own account once the run passes (README: Releasing):
+#   gh run download <run id> -D release-files
+#   gh release create v<version> release-files/*/* --title "PRISM <version>"
 
 name: Installers
 
@@ -139,31 +139,3 @@ jobs:
           name: prism-macos
           path: dist/*.dmg
           if-no-files-found: error
-
-  release:
-    # Only for version tags, and only once every installer is built and tested.
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [windows, linux-test, macos]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: files
-          merge-multiple: true
-      - run: ls -la files
-      - id: v
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-      - uses: softprops/action-gh-release@v2
-        with:
-          name: PRISM ${{ steps.v.outputs.version }}
-          prerelease: ${{ contains(github.ref_name, '-') }}
-          generate_release_notes: true
-          fail_on_unmatched_files: true
-          files: |
-            files/PRISM-Setup-*.exe
-            files/*.dmg
-            files/*.run
-            files/*.deb
-            files/*.rpm
