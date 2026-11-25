@@ -1,4 +1,4 @@
 """PRISM version. Bump this for every release: running copies compare it
 with the one on GitHub (see updates.py) to tell people an update is out."""
 
-VERSION = "1.2.0"
+VERSION = "1.2.1"
