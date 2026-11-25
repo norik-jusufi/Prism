@@ -111,6 +111,16 @@ EOF
   echo "    $out ($(du -h "$out" | cut -f1))"
 }
 
+# The shared libraries the built app needs from the system: everything its
+# programs and libraries link to (ELF NEEDED) that isn't in the bundle.
+system_libs() {
+  command -v objdump >/dev/null 2>&1 || { echo "objdump (binutils) is needed to list the app's libraries" >&2; exit 1; }
+  comm -23 \
+    <(find "$APP" -type f \( -name '*.so*' -o -name PRISM -o -name QtWebEngineProcess \) \
+        -exec objdump -p {} + 2>/dev/null | awk '/NEEDED/ {print $2}' | sort -u) \
+    <(find "$APP" -name '*.so*' -printf '%f\n' | sort -u)
+}
+
 # --- .rpm
 make_rpm() {
   if ! command -v rpmbuild >/dev/null 2>&1; then
@@ -125,7 +135,12 @@ make_rpm() {
   stage_root "$work/root"
   local requires="" lib suffix=""
   case "$ARCH" in x86_64|aarch64|ppc64le|s390x) suffix="()(64bit)" ;; esac
-  for lib in "${RPM_REQUIRES[@]}"; do
+  # Every system library the app links to (what it needs and doesn't bundle),
+  # plus the hand-kept list: distros split libraries differently (openSUSE
+  # ships libgthread apart from glib), so a hand-kept list alone misses some.
+  local libs
+  libs=$( { printf '%s\n' "${RPM_REQUIRES[@]}"; system_libs; } | sort -u)
+  for lib in $libs; do
     case "$lib" in *.so*) requires+="Requires: ${lib}${suffix}"$'\n' ;; *) requires+="Requires: ${lib}"$'\n' ;; esac
   done
   cat > "$work/prism.spec" <<EOF
